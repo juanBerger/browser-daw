@@ -1,0 +1,17 @@
+{
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^22.0.0",
+    "@rollup/plugin-node-resolve": "^13.3.0",
+    "@web/dev-server": "^0.1.31",
+    "koa-isolated": "^1.0.2",
+    "rollup": "^2.75.7",
+    "rollup-plugin-copy": "^3.4.0",
+    "rollup-plugin-css-only": "^3.1.0",
+    "rollup-plugin-svelte": "^7.1.0",
+    "svelte": "^3.48.0"
+  },
+  "scripts": {
+    "dev-build": "rollup -c -w",
+    "dev-server": "wds --open /public/ --node-resolve --watch"
+  }
+}
