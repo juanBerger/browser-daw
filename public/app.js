@@ -490,49 +490,50 @@ function convolve(inline){
 function create_fragment$3(ctx) {
 	let div2;
 	let div0;
+	let t;
+	let div1;
 	let svg;
 	let polyline;
 	let svg_viewBox_value;
-	let t;
-	let div1;
 
 	return {
 		c() {
 			div2 = element("div");
 			div0 = element("div");
-			svg = svg_element("svg");
-			polyline = svg_element("polyline");
 			t = space();
 			div1 = element("div");
+			svg = svg_element("svg");
+			polyline = svg_element("polyline");
+			attr(div0, "class", "mask svelte-r2znka");
 			attr(polyline, "stroke", "white");
-			attr(polyline, "points", /*_points*/ ctx[3]);
+			attr(polyline, "points", /*_points*/ ctx[4]);
 			attr(polyline, "fill", "none");
 			attr(svg, "xmlns", "http://www.w3.org/2000/svg");
 			attr(svg, "width", "100%");
 			attr(svg, "height", "100%");
 			attr(svg, "stroke-width", "2");
 			attr(svg, "preserveAspectRatio", "none");
-			attr(svg, "viewBox", svg_viewBox_value = "" + (/*vbTrim*/ ctx[4] + " 0 " + /*_numPoints*/ ctx[2] + " " + _VBHEIGHT));
-			attr(div0, "class", "line svelte-13htj9d");
-			attr(div1, "class", "mask svelte-13htj9d");
-			attr(div2, "class", "clip svelte-13htj9d");
+			attr(svg, "viewBox", svg_viewBox_value = "" + (/*vbTrim*/ ctx[5] + " 0 " + /*_numPoints*/ ctx[3] + " " + _VBHEIGHT));
+			attr(div1, "class", "line svelte-r2znka");
+			attr(div2, "class", "clip svelte-r2znka");
 		},
 		m(target, anchor) {
 			insert(target, div2, anchor);
 			append(div2, div0);
-			append(div0, svg);
-			append(svg, polyline);
-			/*svg_binding*/ ctx[7](svg);
+			/*div0_binding*/ ctx[8](div0);
 			append(div2, t);
 			append(div2, div1);
-			/*div2_binding*/ ctx[8](div2);
+			append(div1, svg);
+			append(svg, polyline);
+			/*svg_binding*/ ctx[9](svg);
+			/*div2_binding*/ ctx[10](div2);
 		},
 		p(ctx, [dirty]) {
-			if (dirty & /*_points*/ 8) {
-				attr(polyline, "points", /*_points*/ ctx[3]);
+			if (dirty & /*_points*/ 16) {
+				attr(polyline, "points", /*_points*/ ctx[4]);
 			}
 
-			if (dirty & /*vbTrim, _numPoints*/ 20 && svg_viewBox_value !== (svg_viewBox_value = "" + (/*vbTrim*/ ctx[4] + " 0 " + /*_numPoints*/ ctx[2] + " " + _VBHEIGHT))) {
+			if (dirty & /*vbTrim, _numPoints*/ 40 && svg_viewBox_value !== (svg_viewBox_value = "" + (/*vbTrim*/ ctx[5] + " 0 " + /*_numPoints*/ ctx[3] + " " + _VBHEIGHT))) {
 				attr(svg, "viewBox", svg_viewBox_value);
 			}
 		},
@@ -540,8 +541,9 @@ function create_fragment$3(ctx) {
 		o: noop,
 		d(detaching) {
 			if (detaching) detach(div2);
-			/*svg_binding*/ ctx[7](null);
-			/*div2_binding*/ ctx[8](null);
+			/*div0_binding*/ ctx[8](null);
+			/*svg_binding*/ ctx[9](null);
+			/*div2_binding*/ ctx[10](null);
 		}
 	};
 }
@@ -553,6 +555,7 @@ function instance$3($$self, $$props, $$invalidate) {
 	let { start } = $$props;
 	let { fileId } = $$props;
 	let _clip;
+	let _mask;
 	let _svg;
 	let _waveform;
 	let _waveformTrims = [null, null];
@@ -563,6 +566,10 @@ function instance$3($$self, $$props, $$invalidate) {
 	let mouseDown = false;
 	let isTrimming = false;
 	let isMoving = false;
+	let isHighlighting = false;
+	let hlStart = 0;
+	let hlEnd = 0;
+	let firstHighlight = true;
 
 	//subscribe to the store using the subscribe method
 	// $: {    
@@ -579,7 +586,7 @@ function instance$3($$self, $$props, $$invalidate) {
 		//set as full width
 		if (side === null && e === null) {
 			_waveformTrims = [0, _waveform.points.length - 1];
-			$$invalidate(3, _points = _waveform.points.slice(_waveformTrims[0], _waveformTrims[1]).join(' '));
+			$$invalidate(4, _points = _waveform.points.slice(_waveformTrims[0], _waveformTrims[1]).join(' '));
 			return;
 		}
 
@@ -592,7 +599,7 @@ function instance$3($$self, $$props, $$invalidate) {
 			_clip.style.setProperty('--position', translate + 'px');
 
 			//_waveformTrims[0] += Math.round(e.movementX * ((get(samplesPerPixel) * 0.5) / _DENSITY))
-			$$invalidate(4, vbTrim += e.movementX * 10);
+			$$invalidate(5, vbTrim += e.movementX * 10);
 		} else {
 			_waveformTrims[1] += Math.round(e.movementX * (get_store_value(samplesPerPixel) / _DENSITY * 0.5)); //_waveformTrims[0] += e.movementX
 			trim = e.movementX;
@@ -631,6 +638,27 @@ function instance$3($$self, $$props, $$invalidate) {
 		_clip.style.setProperty('--position', translate + 'px');
 	};
 
+	const highlightHandler = e => {
+		if (firstHighlight) {
+			_mask.style.setProperty('--opacity', 0.3);
+			firstHighlight = false;
+			hlStart = e.offsetX;
+			hlEnd = hlStart;
+			console.log('hl start: ', hlStart);
+			_mask.style.setProperty('--position', String(hlStart) + 'px');
+			return;
+		}
+
+		hlEnd += e.movementX;
+		let delta = Math.abs(hlEnd - hlStart);
+
+		if (hlEnd < hlStart) {
+			_mask.style.setProperty('--position', String(hlStart - delta) + 'px');
+		}
+
+		_mask.style.setProperty('--width', String(delta) + 'px');
+	};
+
 	onMount(async () => {
 		//[points, numPoints, numSamples]
 		if (fileId !== null) {
@@ -643,16 +671,29 @@ function instance$3($$self, $$props, $$invalidate) {
 			_clip.style.setProperty('--position', start + 'px');
 
 			//set length of svg viewBox
-			$$invalidate(2, _numPoints = _waveform.points.length);
+			$$invalidate(3, _numPoints = _waveform.points.length);
 
 			trimHandler(null, null);
 		}
 
 		//* MOUSE *//
+		window.addEventListener('mousedown', e => {
+			//reset any highlights
+			_mask.style.setProperty('--opacity', 0);
+
+			_mask.style.setProperty('--position', String(hlStart) + 'px');
+			_mask.style.setProperty('--width', '0px');
+		});
+
+		//reset flags here since we may be outside of the clip
 		window.addEventListener('mouseup', e => {
 			mouseDown = false;
-			if (isTrimming) isTrimming = false;
-			if (isMoving) isMoving = false;
+			isTrimming = false;
+			isMoving = false;
+			isHighlighting = false; //the highlight may still be visible, but it is no longer changing
+			firstHighlight = true;
+			hlStart = 0;
+			hlEnd = 0;
 		});
 
 		_clip.addEventListener('mouseenter', e => {
@@ -666,41 +707,48 @@ function instance$3($$self, $$props, $$invalidate) {
 		_clip.addEventListener('mousedown', e => mouseDown = true);
 
 		_clip.addEventListener('mouseup', e => {
+			//isTrimming isMoving etc are reset on the window version of this event listener
 			if (mouse) setVerticalPointers(e);
 		});
 
 		_clip.addEventListener('mousemove', e => {
-			if (isMoving) {
+			if (isHighlighting) {
+				highlightHandler(e);
+			} else if (isMoving) {
 				moveHandler(e);
 			} else if (isTrimming) {
 				_clip.style.setProperty('--cursor', 'ew-resize');
-				e.offsetX < _clip.offsetWidth * 0.2 && trimHandler(e, 'left');
-				e.offsetX > _clip.offsetWidth * 0.8 && trimHandler(e, 'right');
-			} else if (e.offsetX < _clip.offsetWidth * 0.2 || e.offsetX > _clip.offsetWidth * 0.8) {
-				_clip.style.setProperty('--cursor', 'ew-resize');
+				e.offsetX < _clip.offsetWidth * 0.05 && trimHandler(e, 'left');
+				e.offsetX > _clip.offsetWidth * 0.95 && trimHandler(e, 'right');
+			} else if (e.offsetX < _clip.offsetWidth * 0.05 || e.offsetX > _clip.offsetWidth * 0.95) {
+				if (e.target.className.includes('clip')) {
+					//make sure we are referencing the clip
+					console.log('Setting Trim Cursor ', e);
 
-				if (mouseDown) {
-					isTrimming = true;
-					e.offsetX < _clip.offsetWidth * 0.2 && trimHandler(e, 'left');
-					e.offsetX > _clip.offsetWidth * 0.8 && trimHandler(e, 'right');
+					_clip.style.setProperty('--cursor', 'ew-resize');
+					if (mouseDown) isTrimming = true;
 				}
 			} else {
 				let type = setVerticalPointers(e);
-				console.log(type);
 
 				if (mouseDown) {
-					if (type === 'grab') {
-						isMoving = true;
-					}
+					if (type === 'grab') isMoving = true; else if (type === 'text') isHighlighting = true;
 				}
 			}
 		});
-	}); //preserveAspectRatio='none'
+	});
+
+	function div0_binding($$value) {
+		binding_callbacks[$$value ? 'unshift' : 'push'](() => {
+			_mask = $$value;
+			$$invalidate(1, _mask);
+		});
+	}
 
 	function svg_binding($$value) {
 		binding_callbacks[$$value ? 'unshift' : 'push'](() => {
 			_svg = $$value;
-			$$invalidate(1, _svg);
+			$$invalidate(2, _svg);
 		});
 	}
 
@@ -712,18 +760,20 @@ function instance$3($$self, $$props, $$invalidate) {
 	}
 
 	$$self.$$set = $$props => {
-		if ('start' in $$props) $$invalidate(5, start = $$props.start);
-		if ('fileId' in $$props) $$invalidate(6, fileId = $$props.fileId);
+		if ('start' in $$props) $$invalidate(6, start = $$props.start);
+		if ('fileId' in $$props) $$invalidate(7, fileId = $$props.fileId);
 	};
 
 	return [
 		_clip,
+		_mask,
 		_svg,
 		_numPoints,
 		_points,
 		vbTrim,
 		start,
 		fileId,
+		div0_binding,
 		svg_binding,
 		div2_binding
 	];
@@ -732,7 +782,7 @@ function instance$3($$self, $$props, $$invalidate) {
 class Clip extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$3, create_fragment$3, safe_not_equal, { start: 5, fileId: 6 });
+		init(this, options, instance$3, create_fragment$3, safe_not_equal, { start: 6, fileId: 7 });
 	}
 }
 
