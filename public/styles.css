@@ -1,4 +1,4 @@
-body {
+#trackArea.svelte-1jxtb3m{--trackArea-width:0;position:relative;grid-row-start:3;grid-column-start:3;display:flex;flex-direction:column;margin:0.8em;width:var(--trackArea-width)}body {
     background-color: rgba(28,28,28, 1);
     border: 1px solid rgb(255, 205, 238, 0.6);
     
@@ -45,6 +45,6 @@ body {
 
 
 
-#trackArea.svelte-1jxtb3m{--trackArea-width:0;position:relative;grid-row-start:3;grid-column-start:3;display:flex;flex-direction:column;margin:0.8em;width:var(--trackArea-width)}div.svelte-4j4pzx{--playhead-height:0px;--playhead-pos:0px;position:absolute;left:var(--playhead-pos);border:1px solid rgba(212, 73, 243, 0.635);border-radius:10px;width:1px;height:var(--playhead-height);background-color:rgba(255, 255, 0, 0.286)
+div.svelte-4j4pzx{--playhead-height:0px;--playhead-pos:0px;position:absolute;left:var(--playhead-pos);border:1px solid rgba(212, 73, 243, 0.635);border-radius:10px;width:1px;height:var(--playhead-height);background-color:rgba(255, 255, 0, 0.286)
 
-}.clip.svelte-r2znka{--position:0px;--cursor:auto;display:grid;box-shadow:0.06em 0.06em 0.2em 0.09em rgba(163, 142, 168, 0.46);height:89%;margin-top:auto;margin-bottom:auto;transform:translateX(var(--position));background:rgba(177, 177, 177, 0.06);cursor:var(--cursor)}.line.svelte-r2znka{width:100%;height:100%;grid-row-start:1;grid-column-start:1}.mask.svelte-r2znka{--opacity:0;--position:0px;--width:0px;width:var(--width);transform:translateX(var(--position));height:100%;grid-row-start:1;grid-column-start:1;background:rgba(209, 213, 255, var(--opacity))}
+}.clip.svelte-1pnigs2{--position:0px;--cursor:auto;--width:0px;display:grid;grid-template-rows:100%;box-shadow:0.06em 0.06em 0.2em 0.09em rgba(163, 142, 168, 0.46);height:89%;width:var(--width);margin-top:auto;margin-bottom:auto;transform:translateX(var(--position));background:rgba(177, 177, 177, 0.06);cursor:var(--cursor)}.line.svelte-1pnigs2{width:100%;height:100%;grid-row-start:1;grid-column-start:1}.mask.svelte-1pnigs2{--opacity:0;--position:0px;--width:0px;width:var(--width);transform:translateX(var(--position));height:100%;grid-row-start:1;grid-column-start:1;background:rgba(209, 213, 255, var(--opacity))}

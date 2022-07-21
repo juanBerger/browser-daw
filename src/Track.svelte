@@ -21,7 +21,9 @@ onMount(() => {
             target: _this,
             props: {
                 start: 300,
-                fileId: fileId
+                width: null,
+                fileId: fileId,
+                parent: _this
             }
         })
 

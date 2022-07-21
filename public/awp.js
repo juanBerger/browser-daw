@@ -20,7 +20,6 @@ class AWP extends AudioWorkletProcessor {
 
 			else if (e.data.getWaveform != null){
 				let response = null;
-				
 				if (e.data.getWaveform in this.Files.files){
 					response = this.Files.files[e.data.getWaveform]
 				}
@@ -45,24 +44,26 @@ class AWP extends AudioWorkletProcessor {
 					'int16': [-32768, 32767]
 				}
 
-				const density = 50;
-				const height = 5000; //this is in pixels and is arbitrary since varying track heights will stretch and squash whatever the instrinsic height actually is. There is prob a sane default here
-            	const yMultiple = 1;
-            	
-				let points = '';
-				let lastY = 0;
+				const density = 200; //has to be density % numChannels = 0
+				const height = 4000; //this is in pixels and is arbitrary since varying track heights will stretch and squash whatever the instrinsic height actually is. There is prob a sane default here
+            	const channels = 2;
+
+				let points = [];
+				let y = 0;
+
     
 				for (let i=0; i < audio.length; i += density){ 
 					let scaled = Math.round(scaler(audio[i], typeRanges[dType][0], typeRanges[dType][1], 0, height))
-					points += String(lastY) + ',' + String(scaled) + ' '
-					lastY += yMultiple        
+					points.push(String(y) + ',' + String(scaled))
+					y++        
 				}
 			
 				const result = {
-					points: points.split(' '),
+					points: points,
 					sampleLength: audio.length,
 					height: height,
-					density: density
+					density: density,
+					channels: channels,
 
 				}
 
@@ -86,8 +87,6 @@ class AWP extends AudioWorkletProcessor {
 
 				return id
 			}
-
-			
 
 		}
 
@@ -151,6 +150,7 @@ class AWP extends AudioWorkletProcessor {
 
 	//each tick advances 128 samples when playback is started
 	process (inputs, outputs, parameters) {
+		
 		
 		if (this.Clock.isPlaying){
 			this.Clock.tick(128)

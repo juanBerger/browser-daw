@@ -29,6 +29,9 @@ function get_store_value(store) {
     subscribe(store, _ => value = _)();
     return value;
 }
+function component_subscribe(component, store, callback) {
+    component.$$.on_destroy.push(subscribe(store, callback));
+}
 function append(target, node) {
     target.appendChild(node);
 }
@@ -504,36 +507,40 @@ function create_fragment$3(ctx) {
 			div1 = element("div");
 			svg = svg_element("svg");
 			polyline = svg_element("polyline");
-			attr(div0, "class", "mask svelte-r2znka");
+			attr(div0, "class", "mask svelte-1pnigs2");
+			attr(div0, "id", "-mask");
 			attr(polyline, "stroke", "white");
-			attr(polyline, "points", /*_points*/ ctx[4]);
+			attr(polyline, "points", /*points*/ ctx[5]);
 			attr(polyline, "fill", "none");
 			attr(svg, "xmlns", "http://www.w3.org/2000/svg");
-			attr(svg, "width", "100%");
+			attr(svg, "width", /*maxSvgWidth*/ ctx[3]);
 			attr(svg, "height", "100%");
-			attr(svg, "stroke-width", "2");
 			attr(svg, "preserveAspectRatio", "none");
-			attr(svg, "viewBox", svg_viewBox_value = "" + (/*vbTrim*/ ctx[5] + " 0 " + /*_numPoints*/ ctx[3] + " " + _VBHEIGHT));
-			attr(div1, "class", "line svelte-r2znka");
-			attr(div2, "class", "clip svelte-r2znka");
+			attr(svg, "stroke-width", "2");
+			attr(svg, "viewBox", svg_viewBox_value = "" + (vbShift + " 0 " + /*vbLength*/ ctx[1] + " " + /*vbHeight*/ ctx[2]));
+			attr(div1, "class", "line svelte-1pnigs2");
+			attr(div2, "class", "clip svelte-1pnigs2");
 		},
 		m(target, anchor) {
 			insert(target, div2, anchor);
 			append(div2, div0);
-			/*div0_binding*/ ctx[8](div0);
+			/*div0_binding*/ ctx[11](div0);
 			append(div2, t);
 			append(div2, div1);
 			append(div1, svg);
 			append(svg, polyline);
-			/*svg_binding*/ ctx[9](svg);
-			/*div2_binding*/ ctx[10](div2);
+			/*div2_binding*/ ctx[12](div2);
 		},
 		p(ctx, [dirty]) {
-			if (dirty & /*_points*/ 16) {
-				attr(polyline, "points", /*_points*/ ctx[4]);
+			if (dirty & /*points*/ 32) {
+				attr(polyline, "points", /*points*/ ctx[5]);
 			}
 
-			if (dirty & /*vbTrim, _numPoints*/ 40 && svg_viewBox_value !== (svg_viewBox_value = "" + (/*vbTrim*/ ctx[5] + " 0 " + /*_numPoints*/ ctx[3] + " " + _VBHEIGHT))) {
+			if (dirty & /*maxSvgWidth*/ 8) {
+				attr(svg, "width", /*maxSvgWidth*/ ctx[3]);
+			}
+
+			if (dirty & /*vbLength, vbHeight*/ 6 && svg_viewBox_value !== (svg_viewBox_value = "" + (vbShift + " 0 " + /*vbLength*/ ctx[1] + " " + /*vbHeight*/ ctx[2]))) {
 				attr(svg, "viewBox", svg_viewBox_value);
 			}
 		},
@@ -541,76 +548,71 @@ function create_fragment$3(ctx) {
 		o: noop,
 		d(detaching) {
 			if (detaching) detach(div2);
-			/*div0_binding*/ ctx[8](null);
-			/*svg_binding*/ ctx[9](null);
-			/*div2_binding*/ ctx[10](null);
+			/*div0_binding*/ ctx[11](null);
+			/*div2_binding*/ ctx[12](null);
 		}
 	};
 }
 
-const _VBHEIGHT = '5000'; //this should be the same as the height const in the _generateWaveForm function
-const _DENSITY = 50;
+let vbShift = '0';
 
 function instance$3($$self, $$props, $$invalidate) {
+	let $samplesPerPixel;
+	component_subscribe($$self, samplesPerPixel, $$value => $$invalidate(10, $samplesPerPixel = $$value));
 	let { start } = $$props;
 	let { fileId } = $$props;
+	let { width } = $$props;
+	let { parent } = $$props;
+	let lineData;
+	let vbLength = 0; //the polyline creates a new point at each pixel
+	let vbHeight = 0;
+	let maxSvgWidth;
 	let _clip;
 	let _mask;
-	let _svg;
-	let _waveform;
-	let _waveformTrims = [null, null];
-	let _numPoints = 0; //this is the number of pts in the polyline
-	let _points = '';
-	let vbTrim = 0;
+	let _waveformTrims = [0, 0];
+	let points = '';
+
+	/* Mouse states */
 	let mouse = null;
+
 	let mouseDown = false;
+
+	/* Actions */
 	let isTrimming = false;
+
 	let isMoving = false;
 	let isHighlighting = false;
+	let firstHighlight = true;
 	let hlStart = 0;
 	let hlEnd = 0;
-	let firstHighlight = true;
 
-	//subscribe to the store using the subscribe method
-	// $: {    
-	//     const spp = $samplesPerPixel
-	//     if (_clip && spp > 0 && _waveform){
-	//         _clip.style.width = calculateClipSize(_waveform.sampleLength) + 'px';
-	//     }
+	// const setClipSize = (sampleLength) => {
+	//     return String(Math.round((sampleLength / get(samplesPerPixel)) * 0.5))
 	// }
-	const calculateClipSize = sampleLength => {
-		return String(Math.round(sampleLength / get_store_value(samplesPerPixel) * 0.5));
-	};
-
 	const trimHandler = (e, side) => {
-		//set as full width
-		if (side === null && e === null) {
-			_waveformTrims = [0, _waveform.points.length - 1];
-			$$invalidate(4, _points = _waveform.points.slice(_waveformTrims[0], _waveformTrims[1]).join(' '));
-			return;
-		}
-
-		let trim;
+		let lineTrim = Math.round(e.movementX * get_store_value(samplesPerPixel) / (lineData.density * 0.5));
+		console.log(e.movementX, lineTrim);
 
 		if (side === 'left') {
-			trim = e.movementX * -1;
+			lineTrim = e.movementX * -1;
 			let translate = Number(window.getComputedStyle(_clip).getPropertyValue('--position').split('px')[0]);
 			translate += e.movementX;
 			_clip.style.setProperty('--position', translate + 'px');
 
-			//_waveformTrims[0] += Math.round(e.movementX * ((get(samplesPerPixel) * 0.5) / _DENSITY))
-			$$invalidate(5, vbTrim += e.movementX * 10);
-		} else {
-			_waveformTrims[1] += Math.round(e.movementX * (get_store_value(samplesPerPixel) / _DENSITY * 0.5)); //_waveformTrims[0] += e.movementX
-			trim = e.movementX;
+			// let sampleLocation = e.movementX * get(samplesPerPixel)
+			// let closestWaveFormPt = e.movementX * _DENSITY
+			_waveformTrims[0] += e.movementX * Math.round(get_store_value(samplesPerPixel) * 0.5 / _DENSITY);
+		} else //trim += e.movementX
+		//_waveformTrims[0] += e.movementX
+		{
+			_waveformTrims[1] += lineTrim; ///console.log(_waveformTrims[0])
+			//lineTrim is negative here
+
+			$$invalidate(5, points = lineData.points.slice(_waveformTrims[0], _waveformTrims[1]).join(' '));
 		}
 
-		console.log(e.movementX, _waveformTrims);
-
-		//_points = _waveform.points.slice(_waveformTrims[0], _waveformTrims[1]).join(' ')
-		let divWidth = Number(_clip.style.width.split('px')[0]) + trim;
-
-		$$invalidate(0, _clip.style.width = String(divWidth) + 'px', _clip);
+		let divWidth = Number(_clip.style.getPropertyValue('--width').split('px')[0]) + e.movementX;
+		_clip.style.setProperty('--width', String(divWidth) + 'px');
 	}; //do sample offsets here
 	//let realSampleOffset = (trim * _DENSITY * get(samplesPerPixel));
 	//AudioCore.awp.port.postMessage({trims: {fileId: []}}) //need to account for sample skips Density * samplesPerPixel when passing pointers bac
@@ -659,96 +661,135 @@ function instance$3($$self, $$props, $$invalidate) {
 		_mask.style.setProperty('--width', String(delta) + 'px');
 	};
 
+	const setClipSize = lineData => {
+		let audioFrames = lineData.points.length * lineData.density / lineData.channels;
+		return Math.round(audioFrames / get_store_value(samplesPerPixel));
+	};
+
 	onMount(async () => {
-		//[points, numPoints, numSamples]
 		if (fileId !== null) {
-			//get waveform obj for this fileId
-			_waveform = await AudioCore.getWaveform(fileId);
-
-			//size clip to it based on num samples / 2 (bec they are interleaved) and current samplesPerPixel
-			$$invalidate(0, _clip.style.width = calculateClipSize(_waveform.sampleLength) + 'px', _clip);
-
 			_clip.style.setProperty('--position', start + 'px');
+			lineData = await AudioCore.getWaveform(fileId); //get data from audio back end
 
-			//set length of svg viewBox
-			$$invalidate(3, _numPoints = _waveform.points.length);
-
-			trimHandler(null, null);
-		}
-
-		//* MOUSE *//
-		window.addEventListener('mousedown', e => {
-			//reset any highlights
-			_mask.style.setProperty('--opacity', 0);
-
-			_mask.style.setProperty('--position', String(hlStart) + 'px');
-			_mask.style.setProperty('--width', '0px');
-		});
-
-		//reset flags here since we may be outside of the clip
-		window.addEventListener('mouseup', e => {
-			mouseDown = false;
-			isTrimming = false;
-			isMoving = false;
-			isHighlighting = false; //the highlight may still be visible, but it is no longer changing
-			firstHighlight = true;
-			hlStart = 0;
-			hlEnd = 0;
-		});
-
-		_clip.addEventListener('mouseenter', e => {
-			mouse = true;
-		});
-
-		_clip.addEventListener('mouseleave', e => {
-			mouse = false;
-		});
-
-		_clip.addEventListener('mousedown', e => mouseDown = true);
-
-		_clip.addEventListener('mouseup', e => {
-			//isTrimming isMoving etc are reset on the window version of this event listener
-			if (mouse) setVerticalPointers(e);
-		});
-
-		_clip.addEventListener('mousemove', e => {
-			if (isHighlighting) {
-				highlightHandler(e);
-			} else if (isMoving) {
-				moveHandler(e);
-			} else if (isTrimming) {
-				_clip.style.setProperty('--cursor', 'ew-resize');
-				e.offsetX < _clip.offsetWidth * 0.05 && trimHandler(e, 'left');
-				e.offsetX > _clip.offsetWidth * 0.95 && trimHandler(e, 'right');
-			} else if (e.offsetX < _clip.offsetWidth * 0.05 || e.offsetX > _clip.offsetWidth * 0.95) {
-				if (e.target.className.includes('clip')) {
-					//make sure we are referencing the clip
-					console.log('Setting Trim Cursor ', e);
-
-					_clip.style.setProperty('--cursor', 'ew-resize');
-					if (mouseDown) isTrimming = true;
-				}
+			//Set initial width of clip is set by constructor. Null is full size of backing file
+			//if (width === null){ width = setClipSize(lineData.sampleLength) + 'px'; } //can we get this from points length?
+			//else width = String(width) + 'px'
+			//Clip Dims
+			if (width === null) {
+				$$invalidate(6, width = String(setClipSize(lineData)));
 			} else {
-				let type = setVerticalPointers(e);
-
-				if (mouseDown) {
-					if (type === 'grab') isMoving = true; else if (type === 'text') isHighlighting = true;
-				}
+				$$invalidate(6, width = String(width)); //can we get this from points length?
 			}
-		});
-	});
+			_clip.style.setProperty('--width', width + 'px');
+
+			//SVG Dims
+			$$invalidate(2, vbHeight = String(lineData.height));
+
+			$$invalidate(1, vbLength = String(lineData.points.length));
+			$$invalidate(3, maxSvgWidth = Number(_clip.style.getPropertyValue('--width').split('px')[0]));
+			_waveformTrims = [0, lineData.points.length - 1]; //set trim amounts
+			$$invalidate(5, points = lineData.points.slice(0, lineData.points.length).join(' '));
+
+			//* MOUSE *//
+			window.addEventListener('mousedown', e => {
+				//reset any highlights
+				_mask.style.setProperty('--opacity', 0);
+
+				_mask.style.setProperty('--position', String(hlStart) + 'px');
+				_mask.style.setProperty('--width', '0px');
+				hlStart = 0;
+				hlEnd = 0;
+			});
+
+			window.addEventListener('keydown', e => {
+				console.log(e.key, hlStart, hlEnd);
+
+				if (e.key === 'Backspace' && Math.abs(hlStart - hlEnd) > 0) {
+					let s = Number(window.getComputedStyle(_clip).getPropertyValue('--position').split('px')[0]);
+					let w = hlStart;
+					if (hlEnd < hlStart) w = s + hlEnd; //hlEnd is negative here -- > this right?
+
+					new Clip_1({
+							target: parent,
+							props: { start: s, width: w, fileId, parent }
+						});
+
+					console.log(s, w);
+					let sRight = s + hlEnd;
+					let wRight = Number(width.split('px')[0]) - hlEnd;
+					console.log(sRight, wRight);
+
+					new Clip_1({
+							target: parent,
+							props: {
+								start: sRight,
+								width: wRight,
+								fileId,
+								parent
+							}
+						});
+
+					parent.removeChild(_clip);
+				}
+			});
+
+			//reset flags here since we may be outside of the clip
+			window.addEventListener('mouseup', e => {
+				mouseDown = false;
+				isTrimming = false;
+				isMoving = false;
+				isHighlighting = false; //the highlight may still be visible, but it is no longer changing
+				firstHighlight = true;
+			}); // hlStart = 0;
+			// hlEnd = 0;
+
+			_clip.addEventListener('mouseenter', e => {
+				mouse = true;
+			});
+
+			_clip.addEventListener('mouseleave', e => {
+				mouse = false;
+			});
+
+			_clip.addEventListener('mousedown', e => mouseDown = true);
+
+			_clip.addEventListener('mouseup', e => {
+				//isTrimming isMoving etc are reset on the window version of this event listener
+				if (mouse) setVerticalPointers(e);
+			});
+
+			_clip.addEventListener('mousemove', e => {
+				if (isHighlighting) {
+					highlightHandler(e);
+				} else if (isMoving) {
+					moveHandler(e);
+				} else if (isTrimming) {
+					_clip.style.setProperty('--cursor', 'ew-resize');
+					e.offsetX < _clip.offsetWidth * 0.05 && trimHandler(e, 'left');
+					e.offsetX > _clip.offsetWidth * 0.95 && trimHandler(e, 'right');
+				} else if (e.offsetX < _clip.offsetWidth * 0.05 || e.offsetX > _clip.offsetWidth * 0.95) {
+					if (e.srcElement.id != '-mask') {
+						//make sure we are referencing the clip
+						_clip.style.setProperty('--cursor', 'ew-resize');
+
+						if (mouseDown) isTrimming = true;
+					}
+				} else {
+					let type = setVerticalPointers(e);
+
+					if (mouseDown) {
+						if (type === 'grab') isMoving = true; else if (type === 'text') isHighlighting = true;
+					}
+				}
+			});
+		} else console.error('No Audio Associated With This Clip');
+	}); //viewBox='0 0 {vbLength} {vbHeight}
+	//svg element width should be TOTAL WIDTH of all samples at current samplesPerPixel
 
 	function div0_binding($$value) {
 		binding_callbacks[$$value ? 'unshift' : 'push'](() => {
 			_mask = $$value;
-			$$invalidate(1, _mask);
-		});
-	}
-
-	function svg_binding($$value) {
-		binding_callbacks[$$value ? 'unshift' : 'push'](() => {
-			_svg = $$value;
-			$$invalidate(2, _svg);
+			$$invalidate(4, _mask);
 		});
 	}
 
@@ -760,29 +801,46 @@ function instance$3($$self, $$props, $$invalidate) {
 	}
 
 	$$self.$$set = $$props => {
-		if ('start' in $$props) $$invalidate(6, start = $$props.start);
-		if ('fileId' in $$props) $$invalidate(7, fileId = $$props.fileId);
+		if ('start' in $$props) $$invalidate(7, start = $$props.start);
+		if ('fileId' in $$props) $$invalidate(8, fileId = $$props.fileId);
+		if ('width' in $$props) $$invalidate(6, width = $$props.width);
+		if ('parent' in $$props) $$invalidate(9, parent = $$props.parent);
+	};
+
+	$$self.$$.update = () => {
+		if ($$self.$$.dirty & /*$samplesPerPixel, _clip*/ 1025) {
+			{
+				const spp = $samplesPerPixel;
+
+				if (_clip && spp > 0) {
+					const sampleLength = Number(_clip.style.width.split('px')[0]) * get_store_value(samplesPerPixel);
+					console.log(sampleLength, get_store_value(samplesPerPixel));
+				} //_clip.style.width = setClipSize(sampleLength) + 'px';
+			}
+		}
 	};
 
 	return [
 		_clip,
+		vbLength,
+		vbHeight,
+		maxSvgWidth,
 		_mask,
-		_svg,
-		_numPoints,
-		_points,
-		vbTrim,
+		points,
+		width,
 		start,
 		fileId,
+		parent,
+		$samplesPerPixel,
 		div0_binding,
-		svg_binding,
 		div2_binding
 	];
 }
 
-class Clip extends SvelteComponent {
+class Clip_1 extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$3, create_fragment$3, safe_not_equal, { start: 6, fileId: 7 });
+		init(this, options, instance$3, create_fragment$3, safe_not_equal, { start: 7, fileId: 8, width: 6, parent: 9 });
 	}
 }
 
@@ -819,9 +877,14 @@ function instance$2($$self, $$props, $$invalidate) {
 			_this.addEventListener('mouseenter', e => true);
 			_this.addEventListener('mouseleave', e => false);
 
-			new Clip({
+			new Clip_1({
 					target: _this,
-					props: { start: 300, fileId }
+					props: {
+						start: 300,
+						width: null,
+						fileId,
+						parent: _this
+					}
 				});
 		}
 	});
@@ -876,6 +939,7 @@ function instance$1($$self, $$props, $$invalidate) {
 	let { height } = $$props;
 	let _this;
 	let _isPlaying = false;
+	let _lastSampleValue = 0;
 	let _pixelPosition = 0;
 
 	onMount(async () => {
@@ -884,21 +948,22 @@ function instance$1($$self, $$props, $$invalidate) {
 			//the counter has to map the playhead to a specific pixel. This is based oN samplesPerPixrel // 
 			const updateStyle = () => _this.style.setProperty('--playhead-pos', _pixelPosition + 'px');
 
-			// Just listen to onmessage here
-			// if (!AudioCore.awp){
-			//   await AudioCore.create()
-			//   AudioCore.awp.port.onmessage = e => { 
-			//     if (e.data.tick.samples - _lastSampleValue >= (get(samplesPerPixel)) && _isPlaying){
-			//         _pixelPosition = Math.round(e.data.tick.samples / get(samplesPerPixel)) // + any scrolled amount
-			//         updateStyle()
-			//         _lastSampleValue = e.data.tick.samples
-			//     }
-			//   }
-			// }
-			// else if (AudioCore.audioContext.state === 'suspended'){
-			//     await AudioCore.audioContext.resume()
-			//     console.log(AudioCore.audioContext.state)
-			// }
+			//Just listen to onmessage here
+			if (!AudioCore.awp) {
+				await AudioCore.create();
+
+				AudioCore.awp.port.onmessage = e => {
+					if (e.data.tick.samples - _lastSampleValue >= get_store_value(samplesPerPixel) && _isPlaying) {
+						_pixelPosition = Math.round(e.data.tick.samples / get_store_value(samplesPerPixel)); // + any scrolled amount
+						updateStyle();
+						_lastSampleValue = e.data.tick.samples;
+					}
+				};
+			} else if (AudioCore.audioContext.state === 'suspended') {
+				await AudioCore.audioContext.resume();
+				console.log(AudioCore.audioContext.state);
+			}
+
 			if (e.key != ' ') return;
 
 			//** TEMP */
@@ -910,6 +975,7 @@ function instance$1($$self, $$props, $$invalidate) {
 			} else {
 				_isPlaying = false;
 				AudioCore.awp.port.postMessage({ playState: 'stop', startPos });
+				_lastSampleValue = 0;
 				_pixelPosition = 0;
 				updateStyle();
 			}

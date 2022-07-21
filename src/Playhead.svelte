@@ -30,22 +30,22 @@ onMount(async () => {
         const updateStyle = () => _this.style.setProperty('--playhead-pos', _pixelPosition + 'px');
         
 
-        // Just listen to onmessage here
-        // if (!AudioCore.awp){
-        //   await AudioCore.create()
-        //   AudioCore.awp.port.onmessage = e => { 
-        //     if (e.data.tick.samples - _lastSampleValue >= (get(samplesPerPixel)) && _isPlaying){
-        //         _pixelPosition = Math.round(e.data.tick.samples / get(samplesPerPixel)) // + any scrolled amount
-        //         updateStyle()
-        //         _lastSampleValue = e.data.tick.samples
-        //     }
-        //   }
-        // }
+        //Just listen to onmessage here
+        if (!AudioCore.awp){
+          await AudioCore.create()
+          AudioCore.awp.port.onmessage = e => { 
+            if (e.data.tick.samples - _lastSampleValue >= (get(samplesPerPixel)) && _isPlaying){
+                _pixelPosition = Math.round(e.data.tick.samples / get(samplesPerPixel)) // + any scrolled amount
+                updateStyle()
+                _lastSampleValue = e.data.tick.samples
+            }
+          }
+        }
 
-        // else if (AudioCore.audioContext.state === 'suspended'){
-        //     await AudioCore.audioContext.resume()
-        //     console.log(AudioCore.audioContext.state)
-        // }
+        else if (AudioCore.audioContext.state === 'suspended'){
+            await AudioCore.audioContext.resume()
+            console.log(AudioCore.audioContext.state)
+        }
 
         if (e.key != ' ') return
 
