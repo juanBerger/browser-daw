@@ -27,11 +27,14 @@ class AWP extends AudioWorkletProcessor {
 				this.port.postMessage({setWaveform: response.waveform})
 			}
 
+			else if (e.data.trims){
+				this.Files.files[e.data.trims.id].metas = e.data.trims.metas
+			}
+
 		}
 		
 		this.Files = {
 
-			//{id: {audio: audio, waveform: [points, numPoints], metas: [{start, lt, rt}, ]}}
 			files: {},
 
 			_generateWaveForm(audio, dType){
@@ -51,7 +54,6 @@ class AWP extends AudioWorkletProcessor {
 				let points = [];
 				let y = 0;
 
-    
 				for (let i=0; i < audio.length; i += density){ 
 					let scaled = Math.round(scaler(audio[i], typeRanges[dType][0], typeRanges[dType][1], 0, height))
 					points.push(String(y) + ',' + String(scaled))
@@ -82,7 +84,7 @@ class AWP extends AudioWorkletProcessor {
 				this.files[id] = {
 					audio: audio,
 					waveform: waveform,
-					metas: [],
+					metas: [], //leftIdx, rightIdx, start, idxOffset
 				}
 
 				return id
@@ -103,7 +105,6 @@ class AWP extends AudioWorkletProcessor {
 			},
 
 			updateState(updateObj){
-				
 				this.snap(updateObj.startPos)
 				updateObj.playState === 'play' ? this.isPlaying = true : this.isPlaying = false
 				
@@ -151,12 +152,40 @@ class AWP extends AudioWorkletProcessor {
 	//each tick advances 128 samples when playback is started
 	process (inputs, outputs, parameters) {
 		
-		
+		let left = outputs[0][0]
+		let right = outputs[0][1]
+
 		if (this.Clock.isPlaying){
-			this.Clock.tick(128)
+			for (const fileID in this.Files.files){
+				let fileObj = this.Files.files[fileID]
+				if (fileObj.metas.length > 0){
+					if (this.Clock.position.samples > fileObj.metas[2]){
+						for (let i = 0; i < left.length * 2; i += 2 ){
+							let idx = fileObj.metas[0] + fileObj.metas[3]
+							if (idx > fileObj.metas[1]) {
+								fileObj.metas[3] = 0 //reset idx offset
+								break;
+							}
+							left[i] = fileObj.audio[idx] / 3267
+							right[i] = fileObj.audio[idx + 1] / 3267
+							fileObj.metas[3] += 2	
+						}
+
+					}
+
+					
+				}	
+			}
+
+			this.Clock.tick(left.length)
 			this.port.postMessage({tick: this.Clock.position})
 		}
+
 		
+
+		//check files object for valid ranges
+
+
 		return true
 	}
 }

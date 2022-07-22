@@ -20,7 +20,7 @@ onMount(() => {
         const clip = new Clip({
             target: _this,
             props: {
-                start: 300,
+                start: 100,
                 width: null,
                 fileId: fileId,
                 parent: _this

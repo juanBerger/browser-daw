@@ -13,10 +13,6 @@ let _isPlaying = false;
 let _lastSampleValue = 0;
 let _pixelPosition = 0;
 
-$: {
-    console.log(get(files))
-}
-
 
 
 
@@ -28,25 +24,21 @@ onMount(async () => {
         
         //the counter has to map the playhead to a specific pixel. This is based oN samplesPerPixrel // 
         const updateStyle = () => _this.style.setProperty('--playhead-pos', _pixelPosition + 'px');
-        
-
-        //Just listen to onmessage here
-        if (!AudioCore.awp){
-          await AudioCore.create()
-          AudioCore.awp.port.onmessage = e => { 
-            if (e.data.tick.samples - _lastSampleValue >= (get(samplesPerPixel)) && _isPlaying){
-                _pixelPosition = Math.round(e.data.tick.samples / get(samplesPerPixel)) // + any scrolled amount
+        const handlePlayHeadMessage = (awp_e) => {
+            if (awp_e.data.tick.samples - _lastSampleValue >= (get(samplesPerPixel)) && _isPlaying){
+                _pixelPosition = Math.round(awp_e.data.tick.samples / get(samplesPerPixel)) // + any scrolled amount
                 updateStyle()
-                _lastSampleValue = e.data.tick.samples
+                _lastSampleValue = awp_e.data.tick.samples
             }
-          }
         }
 
-        else if (AudioCore.audioContext.state === 'suspended'){
-            await AudioCore.audioContext.resume()
-            console.log(AudioCore.audioContext.state)
-        }
+        //In this case - no clips have been added
+        if (!AudioCore.awp) await AudioCore.create()
+        
+        AudioCore.awp.port.onmessage = awp_e => handlePlayHeadMessage(awp_e);
 
+        if (AudioCore.audioContext.state === 'suspended') await AudioCore.audioContext.resume()
+    
         if (e.key != ' ') return
 
         //** TEMP */

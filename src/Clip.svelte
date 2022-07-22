@@ -15,7 +15,7 @@ export let width;
 export let parent;
 
 
-let lineData;
+let lineData = null;
 let vbLength = 0; //the polyline creates a new point at each pixel
 let vbHeight = 0;
 let vbShift = '0';
@@ -24,7 +24,8 @@ let maxSvgWidth;
 let _clip;
 let _mask;
 let _svg;
-let _waveformTrims = [0, 0]
+let lineTrims = [0, 0];
+let hasLoaded = false;
 
 let points = '';
 
@@ -42,58 +43,46 @@ let firstHighlight = true;
 let hlStart = 0;
 let hlEnd = 0;
 
-$: {    
-    
+
+$: {
     const spp = $samplesPerPixel
-    if (_clip && spp > 0){
-        const sampleLength = Number(_clip.style.width.split('px')[0]) * get(samplesPerPixel)
-        console.log(sampleLength, get(samplesPerPixel))
-        //_clip.style.width = setClipSize(sampleLength) + 'px';
+    if (hasLoaded){
+        let newWidth = zoomClips(spp);
+        maxSvgWidth = newWidth;
+        _clip.style.setProperty('--width', String(newWidth) + 'px')
     }
 }
 
 
-// const setClipSize = (sampleLength) => {
-//     return String(Math.round((sampleLength / get(samplesPerPixel)) * 0.5))
-// }
-
-
 const trimHandler = (e, side) => {
 
+    //
     let lineTrim = Math.round((e.movementX * get(samplesPerPixel)) / (lineData.density * 0.5));
-    console.log(e.movementX, lineTrim)
+    let clipTrim = e.movementX
+
     if (side === 'left'){
-        lineTrim = e.movementX * -1
+        lineTrims[0] += lineTrim
+
+        //Trimming from left requires clip to move
         let translate = Number(window.getComputedStyle(_clip).getPropertyValue('--position').split('px')[0])
-        translate += e.movementX
+        translate += clipTrim
+        vbShift = String(Number(vbShift) + lineTrim)  //Need to move the viewbox a commesurate amount
         _clip.style.setProperty('--position', translate + 'px')
-        
-        // let sampleLocation = e.movementX * get(samplesPerPixel)
-        // let closestWaveFormPt = e.movementX * _DENSITY
+        clipTrim *= -1;
 
-
-        _waveformTrims[0] += e.movementX * Math.round((get(samplesPerPixel) * 0.5) / _DENSITY)
-        ///console.log(_waveformTrims[0])
-        //trim += e.movementX
-        //_waveformTrims[0] += e.movementX
-    
     }
 
     else {
-
-        _waveformTrims[1] += lineTrim //lineTrim is negative here
-        points = lineData.points.slice(_waveformTrims[0], _waveformTrims[1]).join(' ');
-        
+        if (lineTrims[1] === 0) console.error('No waveform loaded')
+        lineTrims[1] += lineTrim;
     }
     
+    points = lineData.points.slice(lineTrims[0], lineTrims[1]).join(' ');
 
-    let divWidth = Number(_clip.style.getPropertyValue('--width').split('px')[0]) + e.movementX
-    _clip.style.setProperty('--width', String(divWidth) + 'px');
-   
+    let clipWidth = Number(_clip.style.getPropertyValue('--width').split('px')[0]) + clipTrim
+    _clip.style.setProperty('--width', String(clipWidth) + 'px');
 
 
-
-    
     //do sample offsets here
     //let realSampleOffset = (trim * _DENSITY * get(samplesPerPixel));
     //AudioCore.awp.port.postMessage({trims: {fileId: []}}) //need to account for sample skips Density * samplesPerPixel when passing pointers bac
@@ -130,7 +119,6 @@ const highlightHandler = e => {
         firstHighlight = false;
         hlStart = e.offsetX
         hlEnd = hlStart
-        console.log('hl start: ', hlStart)
         _mask.style.setProperty('--position', String(hlStart) + 'px')
         return
     }
@@ -142,16 +130,23 @@ const highlightHandler = e => {
 
     }
     _mask.style.setProperty('--width', String(delta) + 'px')
-
 }
 
 
-const setClipSize = (lineData) => {
-
+const setClipSize = (lineData, spp) => {
     let audioFrames = (lineData.points.length * lineData.density) / lineData.channels
-    return Math.round(audioFrames / get(samplesPerPixel))
+    return Math.round(audioFrames / spp)
 }
 
+const zoomClips = spp => {
+    let sampleLength = (lineTrims[1] - lineTrims[0]) * lineData.density
+    return Math.round((sampleLength / spp) / lineData.channels)
+}
+
+const updateCore = (lineTrims, position) => {
+    let audioFrames = (lineData.points.length * lineData.density) / lineData.channels
+    AudioCore.awp.port.postMessage({trims: {id: 0, metas: [0, audioFrames, position * get(samplesPerPixel), 0]}}) 
+}
 
 onMount(async () => {
     
@@ -160,45 +155,40 @@ onMount(async () => {
         _clip.style.setProperty('--position', start + 'px')
         lineData = await AudioCore.getWaveform(fileId) //get data from audio back end
         
-        //Set initial width of clip is set by constructor. Null is full size of backing file
-        //if (width === null){ width = setClipSize(lineData.sampleLength) + 'px'; } //can we get this from points length?
-        //else width = String(width) + 'px'
-        
+        lineTrims = [0, lineData.points.length - 1] //set trim amounts
+        updateCore(lineTrims, start);
+    
         //Clip Dims
-        if (width === null){ width = String(setClipSize(lineData))} //can we get this from points length?
-        else {width = String(width)};
-        _clip.style.setProperty('--width', width + 'px')
-            
+        if (width === null) width = String(setClipSize(lineData, get(samplesPerPixel)));
+        else width = String(width);
+        _clip.style.setProperty('--width', width + 'px');
+        
         //SVG Dims
         vbHeight = String(lineData.height)
         vbLength = String(lineData.points.length)
         maxSvgWidth = Number(_clip.style.getPropertyValue('--width').split('px')[0])
 
-        _waveformTrims = [0, lineData.points.length - 1] //set trim amounts
         points = lineData.points.slice(0, lineData.points.length).join(' ')
         
-    
         //* MOUSE *//
         window.addEventListener('mousedown', e => {
-            
             //reset any highlights
-            _mask.style.setProperty('--opacity', 0)
-            _mask.style.setProperty('--position', String(hlStart) + 'px')
-            _mask.style.setProperty('--width', '0px')
+            _mask.style.setProperty('--opacity', 0);
+            _mask.style.setProperty('--position', String(hlStart) + 'px');
+            _mask.style.setProperty('--width', '0px');
             hlStart = 0;
             hlEnd = 0;
-            
 
         })
 
 
         window.addEventListener('keydown', e => {
-            console.log(e.key, hlStart, hlEnd)
+            
             if(e.key === 'Backspace' && (Math.abs(hlStart - hlEnd) > 0)){
-                
-                let s = Number(window.getComputedStyle(_clip).getPropertyValue('--position').split('px')[0])
+
+                let s = Number(window.getComputedStyle(_clip).getPropertyValue('--position').split('px')[0]);
                 let w = hlStart;
-                if (hlEnd < hlStart) w = s + hlEnd //hlEnd is negative here -- > this right?
+                if (hlEnd < hlStart) w = s + hlEnd; //hlEnd is negative here -- > this right?
 
                 new Clip({
                     target: parent,
@@ -210,20 +200,19 @@ onMount(async () => {
                     }
                 })
 
-                console.log(s, w)
-                let sRight = s + hlEnd
+                console.log(s, w);
+                let sRight = s + hlEnd;
                 let wRight = Number(width.split('px')[0]) - hlEnd;
 
-                console.log(sRight, wRight)
-                new Clip({
-                    target: parent,
-                    props: {
-                        start: sRight,
-                        width: wRight,
-                        fileId: fileId,
-                        parent: parent
-                    }
-                })
+                // new Clip({
+                //     target: parent,
+                //     props: {
+                //         start: sRight,
+                //         width: wRight,
+                //         fileId: fileId,
+                //         parent: parent
+                //     }
+                // })
 
                 parent.removeChild(_clip)
             }
@@ -284,6 +273,8 @@ onMount(async () => {
             }
         })
     
+        hasLoaded = true;
+
     }
     
     else console.error('No Audio Associated With This Clip')
