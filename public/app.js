@@ -53,6 +53,10 @@ function text(data) {
 function space() {
     return text(' ');
 }
+function listen(node, event, handler, options) {
+    node.addEventListener(event, handler, options);
+    return () => node.removeEventListener(event, handler, options);
+}
 function attr(node, attribute, value) {
     if (value == null)
         node.removeAttribute(attribute);
@@ -1085,21 +1089,37 @@ function create_if_block(ctx) {
 
 function create_fragment(ctx) {
 	let div;
+	let button;
+	let t1;
 	let current;
+	let mounted;
+	let dispose;
 	let if_block = /*_this*/ ctx[0] && create_if_block(ctx);
 
 	return {
 		c() {
 			div = element("div");
+			button = element("button");
+			button.textContent = "Load a file";
+			t1 = space();
 			if (if_block) if_block.c();
+			attr(button, "id", "button");
+			attr(button, "class", "svelte-vv6lfr");
 			attr(div, "id", "trackArea");
-			attr(div, "class", "svelte-1jxtb3m");
+			attr(div, "class", "svelte-vv6lfr");
 		},
 		m(target, anchor) {
 			insert(target, div, anchor);
+			append(div, button);
+			append(div, t1);
 			if (if_block) if_block.m(div, null);
-			/*div_binding*/ ctx[2](div);
+			/*div_binding*/ ctx[3](div);
 			current = true;
+
+			if (!mounted) {
+				dispose = listen(button, "click", /*buttonClicked*/ ctx[2]);
+				mounted = true;
+			}
 		},
 		p(ctx, [dirty]) {
 			if (/*_this*/ ctx[0]) {
@@ -1137,7 +1157,9 @@ function create_fragment(ctx) {
 		d(detaching) {
 			if (detaching) detach(div);
 			if (if_block) if_block.d();
-			/*div_binding*/ ctx[2](null);
+			/*div_binding*/ ctx[3](null);
+			mounted = false;
+			dispose();
 		}
 	};
 }
@@ -1149,6 +1171,50 @@ function instance($$self, $$props, $$invalidate) {
 	let _this;
 	let _zoomStep = 5; // 0 to 30 --> as this gets higher polyline height should somehow get smaller
 	let playheadHeight = 0;
+
+	async function buttonClicked(e) {
+		let audioBuffer = await readFile();
+
+		if (audioBuffer.byteLength > 0) {
+			if (!AudioCore.awp) await AudioCore.create(); else if (AudioCore.audioContext.state === 'suspended') {
+				await AudioCore.audioContext.resume();
+				console.log(AudioCore.audioContext.state);
+			}
+
+			//this is like a function call which we will await -- success = unique id. AWP determined if dup or not
+			let id = await AudioCore.addFile(audioBuffer);
+
+			if (id !== null) {
+				//if (hovering over existing track){
+				//add to that track
+				//}
+				//else:
+				new Track({
+						target: _this,
+						props: {
+							fileId: id, //could be multiple?
+							
+						}
+					});
+			}
+		}
+	}
+
+	const readFile = async () => {
+		const [handle] = await window.showOpenFilePicker({
+			types: [
+				{
+					description: 'Pro Tools Session Files',
+					accept: { 'application/octet-stream': ['.wav'] }
+				}
+			],
+			startIn: 'desktop'
+		});
+
+		const file = await handle.getFile();
+		const buffer = await file.arrayBuffer();
+		return buffer;
+	};
 
 	onMount(async () => {
 		//** SET TO MAX WIDTH*/
@@ -1226,7 +1292,7 @@ function instance($$self, $$props, $$invalidate) {
 		});
 	}
 
-	return [_this, playheadHeight, div_binding];
+	return [_this, playheadHeight, buttonClicked, div_binding];
 }
 
 class TrackArea extends SvelteComponent {

@@ -19,6 +19,50 @@ let playheadHeight = 0;
 let SR = 48000
 let NUM_HOURS = 1
 
+
+
+async function buttonClicked(e){
+    
+    let audioBuffer = await readFile()
+    if (audioBuffer.byteLength > 0){
+
+        if (!AudioCore.awp) await AudioCore.create()
+
+        else if (AudioCore.audioContext.state === 'suspended'){
+            await AudioCore.audioContext.resume()
+            console.log(AudioCore.audioContext.state)
+        }
+
+        //this is like a function call which we will await -- success = unique id. AWP determined if dup or not
+        let id = await AudioCore.addFile(audioBuffer)
+        if (id !== null) {
+            //if (hovering over existing track){
+                //add to that track
+            //}
+            //else:
+            const track = new Track({
+                target: _this,
+                props: {
+                    fileId: id //could be multiple?
+                }
+            })
+        }
+
+    }
+
+}
+
+
+const readFile = async () => {
+    const [handle] = await window.showOpenFilePicker({
+        types: [{ description: 'Pro Tools Session Files', accept: {'application/octet-stream': ['.wav']}}],
+        startIn: 'desktop'}) 
+    const file = await handle.getFile()
+    const buffer = await file.arrayBuffer()
+    return buffer
+}
+
+
 onMount(async () => {
 
     //** SET TO MAX WIDTH*/
@@ -51,6 +95,8 @@ onMount(async () => {
         }          
     })
 
+
+    
 
     //* DRAG AND DROP *//   
     _this.addEventListener('dragover', e => { e.preventDefault() })
@@ -99,12 +145,21 @@ onMount(async () => {
 </script>
 
 <div bind:this={_this} id='trackArea'>
+    
+    <button id='button' on:click={buttonClicked}>Load a file</button>    
+    
     {#if _this}
         <Playhead height={playheadHeight}/>
     {/if}
 </div>
 
 <style>
+
+#button {
+
+    width: 300px;
+
+}
 
 #trackArea {
 
