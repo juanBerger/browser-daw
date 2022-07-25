@@ -396,7 +396,8 @@ function _applyEasing (x) {
             //this needs to get much slower as it gets closer to MIN_SPP
             let eased = x;
             let scaled = Math.round(scaler(eased, 0, 30, MIN_SPP, MAX_SPP));
-            // console.log(scaled, x)
+            scaled % 2 === 0 ? scaled = scaled : scaled += scaled; //2 here is number of channels
+            console.log('[CURRENT SPP]...', scaled);
             set(scaled);
             
         },
@@ -567,6 +568,7 @@ function instance$3($$self, $$props, $$invalidate) {
 	let _clip;
 	let _mask;
 	let lineTrims = [0, 0];
+	let clipTrims = [0, 0];
 	let hasLoaded = false;
 	let points = '';
 
@@ -592,6 +594,8 @@ function instance$3($$self, $$props, $$invalidate) {
 
 		if (side === 'left') {
 			lineTrims[0] += lineTrim;
+			clipTrims[0] += clipTrim * get_store_value(samplesPerPixel);
+			$$invalidate(7, start += clipTrim);
 
 			//Trimming from left requires clip to move
 			let translate = Number(window.getComputedStyle(_clip).getPropertyValue('--position').split('px')[0]);
@@ -603,14 +607,20 @@ function instance$3($$self, $$props, $$invalidate) {
 		} else {
 			if (lineTrims[1] === 0) console.error('No waveform loaded');
 			lineTrims[1] += lineTrim;
+			clipTrims[1] += clipTrim * get_store_value(samplesPerPixel);
 		}
 
+		//Inform the back end
+		setCoreTrims(clipTrims, start);
+
+		//update line drawing
 		$$invalidate(6, points = lineData.points.slice(lineTrims[0], lineTrims[1]).join(' '));
+
+		//update clip size
 		let clipWidth = Number(_clip.style.getPropertyValue('--width').split('px')[0]) + clipTrim;
+
 		_clip.style.setProperty('--width', String(clipWidth) + 'px');
-	}; //do sample offsets here
-	//let realSampleOffset = (trim * _DENSITY * get(samplesPerPixel));
-	//AudioCore.awp.port.postMessage({trims: {fileId: []}}) //need to account for sample skips Density * samplesPerPixel when passing pointers bac
+	};
 
 	const setVerticalPointers = e => {
 		let pointerType;
@@ -629,10 +639,13 @@ function instance$3($$self, $$props, $$invalidate) {
 	};
 
 	const moveHandler = e => {
-		e.movementX * 10;
-		let translate = Number(window.getComputedStyle(_clip).getPropertyValue('--position').split('px')[0]);
-		translate += e.movementX;
-		_clip.style.setProperty('--position', translate + 'px');
+		//let translate = Number(window.getComputedStyle(_clip).getPropertyValue('--position').split('px')[0])
+		$$invalidate(7, start += e.movementX);
+
+		//translate += e.movementX
+		_clip.style.setProperty('--position', start + 'px');
+
+		setCoreTrims(clipTrims, start);
 	};
 
 	const highlightHandler = e => {
@@ -665,13 +678,12 @@ function instance$3($$self, $$props, $$invalidate) {
 		return Math.round(sampleLength / spp / lineData.channels);
 	};
 
-	const updateCore = (lineTrims, position) => {
-		let audioFrames = lineData.points.length * lineData.density / lineData.channels;
-
+	//can we supply this in terms of pixel-sample space // li
+	const setCoreTrims = (clipTrims, position) => {
 		AudioCore.awp.port.postMessage({
 			trims: {
 				id: 0,
-				metas: [0, audioFrames, position * get_store_value(samplesPerPixel), 0]
+				metas: [position * get_store_value(samplesPerPixel), clipTrims[0], clipTrims[1]]
 			}
 		});
 	};
@@ -681,10 +693,14 @@ function instance$3($$self, $$props, $$invalidate) {
 			_clip.style.setProperty('--position', start + 'px');
 			lineData = await AudioCore.getWaveform(fileId); //get data from audio back end
 			lineTrims = [0, lineData.points.length - 1]; //set trim amounts
-			updateCore(lineTrims, start);
+
+			//clipTrims = [0, lineData.sampleLength / lineData.channels]
+			clipTrims = [0, 0]; //these are now only offsets
+
+			setCoreTrims(clipTrims, start);
 
 			//Clip Dims
-			if (width === null) $$invalidate(7, width = String(setClipSize(lineData, get_store_value(samplesPerPixel)))); else $$invalidate(7, width = String(width));
+			if (width === null) $$invalidate(8, width = String(setClipSize(lineData, get_store_value(samplesPerPixel)))); else $$invalidate(8, width = String(width));
 
 			_clip.style.setProperty('--width', width + 'px');
 
@@ -785,8 +801,7 @@ function instance$3($$self, $$props, $$invalidate) {
 
 			$$invalidate(11, hasLoaded = true);
 		} else console.error('No Audio Associated With This Clip');
-	}); //viewBox='0 0 {vbLength} {vbHeight}
-	//svg element width should be TOTAL WIDTH of all samples at current samplesPerPixel
+	});
 
 	function div0_binding($$value) {
 		binding_callbacks[$$value ? 'unshift' : 'push'](() => {
@@ -803,9 +818,9 @@ function instance$3($$self, $$props, $$invalidate) {
 	}
 
 	$$self.$$set = $$props => {
-		if ('start' in $$props) $$invalidate(8, start = $$props.start);
+		if ('start' in $$props) $$invalidate(7, start = $$props.start);
 		if ('fileId' in $$props) $$invalidate(9, fileId = $$props.fileId);
-		if ('width' in $$props) $$invalidate(7, width = $$props.width);
+		if ('width' in $$props) $$invalidate(8, width = $$props.width);
 		if ('parent' in $$props) $$invalidate(10, parent = $$props.parent);
 	};
 
@@ -831,8 +846,8 @@ function instance$3($$self, $$props, $$invalidate) {
 		maxSvgWidth,
 		_mask,
 		points,
-		width,
 		start,
+		width,
 		fileId,
 		parent,
 		hasLoaded,
@@ -853,9 +868,9 @@ class Clip_1 extends SvelteComponent {
 			create_fragment$3,
 			safe_not_equal,
 			{
-				start: 8,
+				start: 7,
 				fileId: 9,
-				width: 7,
+				width: 8,
 				parent: 10
 			},
 			null,
@@ -900,7 +915,7 @@ function instance$2($$self, $$props, $$invalidate) {
 			new Clip_1({
 					target: _this,
 					props: {
-						start: 100,
+						start: 50,
 						width: null,
 						fileId,
 						parent: _this

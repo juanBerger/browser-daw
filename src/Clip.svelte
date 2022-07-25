@@ -25,6 +25,7 @@ let _clip;
 let _mask;
 let _svg;
 let lineTrims = [0, 0];
+let clipTrims = [0, 0];
 let hasLoaded = false;
 
 let points = '';
@@ -59,10 +60,12 @@ const trimHandler = (e, side) => {
     //
     let lineTrim = Math.round((e.movementX * get(samplesPerPixel)) / (lineData.density * 0.5));
     let clipTrim = e.movementX
-
+    
     if (side === 'left'){
         lineTrims[0] += lineTrim
-
+        clipTrims[0] += clipTrim * get(samplesPerPixel)
+        start += clipTrim
+        
         //Trimming from left requires clip to move
         let translate = Number(window.getComputedStyle(_clip).getPropertyValue('--position').split('px')[0])
         translate += clipTrim
@@ -75,17 +78,18 @@ const trimHandler = (e, side) => {
     else {
         if (lineTrims[1] === 0) console.error('No waveform loaded')
         lineTrims[1] += lineTrim;
+        clipTrims[1] += clipTrim * get(samplesPerPixel)
     }
+
+    //Inform the back end
+    setCoreTrims(clipTrims, start);
     
+    //update line drawing
     points = lineData.points.slice(lineTrims[0], lineTrims[1]).join(' ');
 
+    //update clip size
     let clipWidth = Number(_clip.style.getPropertyValue('--width').split('px')[0]) + clipTrim
     _clip.style.setProperty('--width', String(clipWidth) + 'px');
-
-
-    //do sample offsets here
-    //let realSampleOffset = (trim * _DENSITY * get(samplesPerPixel));
-    //AudioCore.awp.port.postMessage({trims: {fileId: []}}) //need to account for sample skips Density * samplesPerPixel when passing pointers bac
     
 }
 
@@ -106,10 +110,12 @@ const setVerticalPointers = (e) => {
 
 
 const moveHandler = e => {
-    e.movementX * 10
-    let translate = Number(window.getComputedStyle(_clip).getPropertyValue('--position').split('px')[0])
-    translate += e.movementX
-    _clip.style.setProperty('--position', translate + 'px')
+    //let translate = Number(window.getComputedStyle(_clip).getPropertyValue('--position').split('px')[0])
+    start += e.movementX
+    //translate += e.movementX
+    _clip.style.setProperty('--position', start + 'px')
+
+    setCoreTrims(clipTrims, start)
 }
 
 const highlightHandler = e => {
@@ -143,9 +149,9 @@ const zoomClips = spp => {
     return Math.round((sampleLength / spp) / lineData.channels)
 }
 
-const updateCore = (lineTrims, position) => {
-    let audioFrames = (lineData.points.length * lineData.density) / lineData.channels
-    AudioCore.awp.port.postMessage({trims: {id: 0, metas: [0, audioFrames, position * get(samplesPerPixel), 0]}}) 
+//can we supply this in terms of pixel-sample space // li
+const setCoreTrims = (clipTrims, position) => {
+    AudioCore.awp.port.postMessage({trims: {id: 0, metas: [position * get(samplesPerPixel), clipTrims[0], clipTrims[1]]}}) 
 }
 
 onMount(async () => {
@@ -156,7 +162,9 @@ onMount(async () => {
         lineData = await AudioCore.getWaveform(fileId) //get data from audio back end
         
         lineTrims = [0, lineData.points.length - 1] //set trim amounts
-        updateCore(lineTrims, start);
+        //clipTrims = [0, lineData.sampleLength / lineData.channels]
+        clipTrims = [0, 0] //these are now only offsets
+        setCoreTrims(clipTrims, start);
     
         //Clip Dims
         if (width === null) width = String(setClipSize(lineData, get(samplesPerPixel)));
@@ -166,12 +174,13 @@ onMount(async () => {
         //SVG Dims
         vbHeight = String(lineData.height)
         vbLength = String(lineData.points.length)
-        maxSvgWidth = Number(_clip.style.getPropertyValue('--width').split('px')[0])
+        maxSvgWidth = Number(_clip.style.getPropertyValue('--width').split('px')[0]) 
 
         points = lineData.points.slice(0, lineData.points.length).join(' ')
         
         //* MOUSE *//
         window.addEventListener('mousedown', e => {
+            
             //reset any highlights
             _mask.style.setProperty('--opacity', 0);
             _mask.style.setProperty('--position', String(hlStart) + 'px');
@@ -278,8 +287,6 @@ onMount(async () => {
     }
     
     else console.error('No Audio Associated With This Clip')
-    //viewBox='0 0 {vbLength} {vbHeight}
-    //svg element width should be TOTAL WIDTH of all samples at current samplesPerPixel
 })
 
 </script>

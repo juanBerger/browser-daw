@@ -21,7 +21,8 @@ function _applyEasing (x) {
             //this needs to get much slower as it gets closer to MIN_SPP
             let eased = x
             let scaled = Math.round(scaler(eased, 0, 30, MIN_SPP, MAX_SPP))
-            // console.log(scaled, x)
+            scaled % 2 === 0 ? scaled = scaled : scaled += scaled //2 here is number of channels
+            console.log('[CURRENT SPP]...', scaled)
             set(scaled)
             
         },
