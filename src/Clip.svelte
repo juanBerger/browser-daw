@@ -4,6 +4,8 @@
 import { onMount } from 'svelte';
 import { get } from 'svelte/store';
 import {samplesPerPixel} from './stores';
+
+import { uuidv4 } from './utils.js';
 import Clip from './Clip.svelte'
 
 import Line from './Line.svelte'
@@ -23,7 +25,7 @@ let maxSvgWidth;
 
 let _clip;
 let _mask;
-let _svg;
+let clipId;
 let lineTrims = [0, 0];
 let clipTrims = [0, 0];
 let hasLoaded = false;
@@ -45,14 +47,14 @@ let hlStart = 0;
 let hlEnd = 0;
 
 
-$: {
-    const spp = $samplesPerPixel
-    if (hasLoaded){
-        let newWidth = zoomClips(spp);
-        maxSvgWidth = newWidth;
-        _clip.style.setProperty('--width', String(newWidth) + 'px')
-    }
-}
+// $: {
+//     const spp = $samplesPerPixel
+//     if (hasLoaded){
+//         let newWidth = zoomClips(spp);
+//         maxSvgWidth = newWidth;
+//         _clip.style.setProperty('--width', String(newWidth) + 'px')
+//     }
+// }
 
 
 const trimHandler = (e, side) => {
@@ -71,14 +73,16 @@ const trimHandler = (e, side) => {
         translate += clipTrim
         vbShift = String(Number(vbShift) + lineTrim)  //Need to move the viewbox a commesurate amount
         _clip.style.setProperty('--position', translate + 'px')
+        
         clipTrim *= -1;
-
+        console.log(clipTrims[0])
     }
 
     else {
         if (lineTrims[1] === 0) console.error('No waveform loaded')
         lineTrims[1] += lineTrim;
-        clipTrims[1] += clipTrim * get(samplesPerPixel)
+        clipTrims[1] += clipTrim * get(samplesPerPixel) * -1;
+        
     }
 
     //Inform the back end
@@ -151,18 +155,18 @@ const zoomClips = spp => {
 
 //can we supply this in terms of pixel-sample space // li
 const setCoreTrims = (clipTrims, position) => {
-    AudioCore.awp.port.postMessage({trims: {id: 0, metas: [position * get(samplesPerPixel), clipTrims[0], clipTrims[1]]}}) 
+    AudioCore.awp.port.postMessage({trims: {fileId: fileId, clipId: clipId, meta: [position * get(samplesPerPixel), clipTrims[0], clipTrims[1]]}})
 }
-
 onMount(async () => {
     
     if (fileId !== null){
         
         _clip.style.setProperty('--position', start + 'px')
         lineData = await AudioCore.getWaveform(fileId) //get data from audio back end
-        
+
+        clipId = uuidv4()
+
         lineTrims = [0, lineData.points.length - 1] //set trim amounts
-        //clipTrims = [0, lineData.sampleLength / lineData.channels]
         clipTrims = [0, 0] //these are now only offsets
         setCoreTrims(clipTrims, start);
     
@@ -196,9 +200,10 @@ onMount(async () => {
             if(e.key === 'Backspace' && (Math.abs(hlStart - hlEnd) > 0)){
 
                 let s = Number(window.getComputedStyle(_clip).getPropertyValue('--position').split('px')[0]);
-                let w = hlStart;
-                if (hlEnd < hlStart) w = s + hlEnd; //hlEnd is negative here -- > this right?
+                let w = hlStart - s;
+                //if (hlEnd < hlStart) w = s + hlEnd; //hlEnd is negative here -- > this right?
 
+                console.log(s, w)
                 new Clip({
                     target: parent,
                     props: {
@@ -209,19 +214,19 @@ onMount(async () => {
                     }
                 })
 
-                console.log(s, w);
+                
                 let sRight = s + hlEnd;
                 let wRight = Number(width.split('px')[0]) - hlEnd;
 
-                // new Clip({
-                //     target: parent,
-                //     props: {
-                //         start: sRight,
-                //         width: wRight,
-                //         fileId: fileId,
-                //         parent: parent
-                //     }
-                // })
+                new Clip({
+                    target: parent,
+                    props: {
+                        start: sRight,
+                        width: wRight,   
+                        fileId: fileId,
+                        parent: parent
+                    }
+                })
 
                 parent.removeChild(_clip)
             }

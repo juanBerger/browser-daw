@@ -1,19 +1,20 @@
 
+
 export const AudioCore = {
 
     audioContext: null,
-    awp: null, 
+    awp: null,
+    totalSamples: 0,
 
     //move this to AudioCore
-    addFile (arrayBuffer) {
+    addFile (arrayBuffer, filename) {
         return new Promise((resolve, reject) => {
             this.awp.port.onmessage = e => {
                 if (e.data.id != null) resolve(e.data.id)
                 else reject(null)
             }
             
-            this.awp.port.postMessage({file: arrayBuffer}, [arrayBuffer])
-            
+            this.awp.port.postMessage({file: arrayBuffer, filename: filename}, [arrayBuffer])
         })
     },
 

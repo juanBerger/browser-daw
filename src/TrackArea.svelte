@@ -19,12 +19,11 @@ let playheadHeight = 0;
 let SR = 48000
 let NUM_HOURS = 1
 
-
-
+//update this to work on fire fox
 async function buttonClicked(e){
     
-    let audioBuffer = await readFile()
-    if (audioBuffer.byteLength > 0){
+    const fileObj = await readFile()
+    if (fileObj[0].byteLength > 0){
 
         if (!AudioCore.awp) await AudioCore.create()
 
@@ -34,7 +33,8 @@ async function buttonClicked(e){
         }
 
         //this is like a function call which we will await -- success = unique id. AWP determined if dup or not
-        let id = await AudioCore.addFile(audioBuffer)
+        let id = await AudioCore.addFile(fileObj[0], fileObj[1].name.split('.wav')[0])
+        
         if (id !== null) {
             //if (hovering over existing track){
                 //add to that track
@@ -54,39 +54,38 @@ async function buttonClicked(e){
 
 
 const readFile = async () => {
+    
     const [handle] = await window.showOpenFilePicker({
-        types: [{ description: 'Pro Tools Session Files', accept: {'application/octet-stream': ['.wav']}}],
+        types: [{ description: '16 bit .wav file', accept: {'application/octet-stream': ['.wav']}}],
         startIn: 'desktop'}) 
     const file = await handle.getFile()
     const buffer = await file.arrayBuffer()
-    return buffer
+    return [buffer, file]
 }
 
 
 onMount(async () => {
 
+    
     //** SET TO MAX WIDTH*/
     let totalSamples = SR * 60 * 60 * NUM_HOURS
+    AudioCore.totalSamples = totalSamples
     samplesPerPixel.ease(_zoomStep)
     let pixelWidth = String(Math.round(totalSamples / get(samplesPerPixel)))
     _this.style.setProperty('--trackArea-width', pixelWidth + 'px')
     
 
+
     /** LISTEN TO THIS RESIZE */
     const resizeObserver = new ResizeObserver(entries => {
-        for (let entry of entries){
-            playheadHeight = entry.contentRect.height
-        }
+        for (let entry of entries){ playheadHeight = entry.contentRect.height }
     })
-
     resizeObserver.observe(_this)
     
 
     /** ZOOMING */
-    
     _this.addEventListener('mouseenter', e => _mouse = true)
     _this.addEventListener('mouseleave', e => _mouse = false)
-        
     document.addEventListener('keydown', e => {
         if (e.key === 'r' || e.key === 't'){
             if (e.key === 'r') _zoomStep >= 30 ? _zoomStep = _zoomStep : _zoomStep++
@@ -95,8 +94,6 @@ onMount(async () => {
         }          
     })
 
-
-    
 
     //* DRAG AND DROP *//   
     _this.addEventListener('dragover', e => { e.preventDefault() })
@@ -121,7 +118,8 @@ onMount(async () => {
                 }
                 
                 //this is like a function call which we will await -- success = unique id. AWP determined if dup or not
-                let id = await AudioCore.addFile(audioBuffer)
+                let id = await AudioCore.addFile(audioBuffer, file.name.split('.wav')[0])
+                
                 if (id !== null) {
                     //if (hovering over existing track){
                         //add to that track

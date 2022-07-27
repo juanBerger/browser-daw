@@ -14,15 +14,13 @@ let _lastSampleValue = 0;
 let _pixelPosition = 0;
 
 
-
-
 onMount(async () => {
-    
+
     //* PLAYHEAD *//
     document.addEventListener('keydown', async e => {
         
         
-        //the counter has to map the playhead to a specific pixel. This is based oN samplesPerPixrel // 
+        //the counter has to map the playhead to a specific pixel. This is based on samplesPerPixrel // 
         const updateStyle = () => _this.style.setProperty('--playhead-pos', _pixelPosition + 'px');
         const handlePlayHeadMessage = (awp_e) => {
             if (awp_e.data.tick.samples - _lastSampleValue >= (get(samplesPerPixel)) && _isPlaying){

@@ -3,8 +3,6 @@
 import { onMount } from 'svelte';
 import Clip from './Clip.svelte'
 
-//export let audioBuffer;
-//export let clips = []
 export let fileId;
 let _this;
 let _mouse = false;
@@ -34,6 +32,7 @@ onMount(() => {
 </script>
 
 <div bind:this={_this} class='track'></div>
+
 
 
 

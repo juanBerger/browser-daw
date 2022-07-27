@@ -1,4 +1,5 @@
 
+import { v5 as uuidv5 } from 'uuid';
 
 class AWP extends AudioWorkletProcessor {
 
@@ -16,7 +17,7 @@ class AWP extends AudioWorkletProcessor {
 			}
 
 			else if (e.data.file){
-				let id = this.Files.add(e.data.file)
+				let id = this.Files.add(e.data.file, e.data.filename)
 				this.port.postMessage({id: id})
 			}
 
@@ -30,14 +31,34 @@ class AWP extends AudioWorkletProcessor {
 			}
 
 			else if (e.data.trims){
-				this.Files.files[e.data.trims.id].metas.push(e.data.trims.metas)
-			}
+				
+				let fileObj = this.Files.files[e.data.trims.fileId] 
+				
+				//proceed with update if the file exists (it should)
+				if (fileObj){ 
 
+					let clipId = e.data.trims.clipId
+					let prevMeta = fileObj.metas[clipId] //get previous meta for this clipID
+
+					//prepare new meta
+					let meta = e.data.trims.meta
+					meta.push(e.data.trims.clipId) //add clipId to meta
+					meta.push(e.data.trims.fileId) //add fileId to meta
+
+					//new meta -- -- -- -- -- -- -- -- //
+					//find this meta and replace it (if it exists) in 3 locations. Timeline, transport, files
+					this.Transport.syncMetaObjects(meta, prevMeta)
+					fileObj.metas[clipId] = meta
+					console.log(this.Transport.timeline)
+					
+				}
+			}
 		}
 		
 		this.Files = {
 
 			files: {},
+			NAMESPACE: 'd176d515-5974-40b9-b5c0-1b21800f1684',
 
 			_generateWaveForm(audio, dType){
 
@@ -49,7 +70,7 @@ class AWP extends AudioWorkletProcessor {
 					'int16': [-32768, 32767]
 				}
 
-				const density = 200; //has to be density % numChannels = 0 --> this means next chunk always starts on a L sample if we index starting at 0
+				const density = 200; //has to be density % numChannels = 0 --> this means next chunk always starts on a L sample if we index starting at 0 (and we are interleaved)
 				const height = 4000; //this is in pixels and is arbitrary since varying track heights will stretch and squash whatever the instrinsic height actually is. There is prob a sane default here
             	const channels = 2;
 
@@ -75,25 +96,91 @@ class AWP extends AudioWorkletProcessor {
 			},
 
 			//https://github.com/pierrec/js-xxhash try this to create a hash
-			add(audioBuffer){
-				//use wav parser util to check data type
-				const audio = new Int16Array(audioBuffer.slice(44, audioBuffer.byteLength)) //int16 only for now
-				const waveform = this._generateWaveForm(audio, 'int16')
-
-				//if (duplicate) return existing id 
-				//else:
-				let id = 0
-				this.files[id] = {
-					audio: audio,
-					waveform: waveform,
-					metas: [], //[start, leftTrim, rightTrim]
-					playbackOffset: 0,
+			add(audioBuffer, filename){
+				
+				let fileId = uuidv5(filename, this.NAMESPACE)
+				
+				if (fileId in this.files){
+					console.warn('File already in the bin')
+					return fileId
 				}
+				
+				else {
+					
+					//use wav parser util to check data type
+					const audio = new Int16Array(audioBuffer.slice(44, audioBuffer.byteLength)) //int16 only for now
+					const waveform = this._generateWaveForm(audio, 'int16')
+					
+					this.files[fileId] = {
+						audio: audio,
+						waveform: waveform,
+						metas: {}, // {clipId: [start, leftTrim, rightTrim, clipId, fileId]} // how to be less redundant here
+						playbackOffset: 0,
+					}
+					
+					return fileId
 
-				return id
+				}
 			}
 
 		}
+
+		this.Transport = {
+			
+			timeline: {},
+			stack: [],
+
+			syncMetaObjects(meta, prevMeta) {
+
+				//if the meta is on the transport stack, update it
+				for (const [i, m] of this.stack.entries()){
+					if (m[3] === meta[3]){
+						console.log('Updating Existing Transport Stack Entry')
+						this.stack[i] = meta
+					}
+				}
+
+
+				//get the prev timeline slot of this meta (if there is one) and remove it from there
+				if (prevMeta){
+					let prevSlot = prevMeta[0] - (prevMeta[0] % 128)
+					let slotMetas = this.timeline[prevSlot]
+					if (slotMetas){
+						for (const [i, m] of slotMetas.entries()){
+							if (m[3] === meta[3]) { //if clipIds match
+								slotMetas.splice(i, 1) //remove the old meta entry
+								if (slotMetas.length <= 0) // if there are no more metas in this timeline slot, remove the slot
+									delete this.timeline[prevSlot]
+							}
+						}
+					}
+				}
+				
+				
+
+				//add to the new timeline slot or create a new slot if needed
+				let slot = meta[0] - (meta[0] % 128)
+				if (this.timeline[slot]){ //the needed slot already exists, check if this meta already exists there (redundant probably)
+					for (const [i, m] of this.timeline[slot].entries()){
+						if (m[3] === meta[3]) { //this should never happen if the above worked
+							console.log('Updating Timeline Slot')
+							this.timeline[slot][i] = meta
+							return
+						}
+					}
+				
+					this.timeline[slot].push(meta) // the meta doesn't exist so add it to this slot
+				
+				}
+
+				else {
+					this.timeline[slot] = [meta] //the slot never existed so create it and add the meta
+				}
+				
+			}
+
+		}
+
 
 		this.Clock = {
 
@@ -155,17 +242,11 @@ class AWP extends AudioWorkletProcessor {
 	setOrClear(playState){
 		
 		if (playState === 'stop'){
-			
-			for (const fileID in this.Files.files){
-				let fileObj = this.Files.files[fileID]
-				fileObj.metas[3] = 0;
-				// for (const meta of fileObj.metas){
-				// 	meta[3] = 0
-				// }
-			}
+			this.Transport.stack = [];
+			console.log('Cleared Transport Stack')
 		}
-		
 	}
+
 
 	//each tick advances 128 samples when playback is started
 	process (inputs, outputs, parameters) {
@@ -173,40 +254,58 @@ class AWP extends AudioWorkletProcessor {
 		let outputDevice = outputs[0]
 		let frames = outputDevice[0].length
 
-		//start, leftIdx, rightIdx, idxOffset
 		if (this.Clock.isPlaying){			
 			
-			for (let frame = 0; frame < frames; frame++){
-			
-				//intra - block 
-				let P = this.Clock.position.samples + frame //this needs to account for the fact that we s
+			let P = this.Clock.position.samples
+			let metas = this.Transport.timeline[P]
+			if (metas){
+				metas.forEach(meta => this.Transport.stack.push(meta))
+			}
 
-				//check all the files
-				for (const fileID in this.Files.files){
-					
-					const fileObj = this.Files.files[fileID]
-					const channels = fileObj.waveform.channels
-					
-					//check all the metas for these files
-					for (const meta of fileObj.metas){
+			if (this.Transport.stack.length > 0){
 
+				for (let frame = 0; frame < frames; frame++){	
+
+					P = this.Clock.position.samples + frame
+
+					for (const [index, meta] of this.Transport.stack.entries()){
+					
+						let fileObj = this.Files.files[meta[4]]
 						let idx = P - meta[0]
+
+						if (idx >= 0) {
 						
-						if (idx >= 0 && idx < (fileObj.audio.length - meta[2])) {
-							
+							let channels = fileObj.waveform.channels
 							idx += meta[1]
+
+							if (idx > ((fileObj.audio.length / channels)- meta[2])){
+								console.log('Item removed from transport stack');
+								this.Transport.stack.splice(index, 1);
+								continue;
+							}
 							
 							for (let ch = 0; ch < channels; ch++){
-								
 								idx += ch          
 								let sample = fileObj.audio[idx * channels] / 32768 //scale the value of idx to +/- playback speed
+								
+								let prevValue = outputDevice[ch][frame]
+								sample += prevValue
+								sample > 1.0 ? sample = 1.0 : sample = sample
+								sample < -1.0 ? sample = -1.0 : sample = sample
+
 								outputDevice[ch][frame] = sample
 							}
 						}
+
 					}
+
 				}
-			}
 	
+			
+			}
+			
+			
+			
 			this.Clock.tick(frames)
 			this.port.postMessage({tick: this.Clock.position})
 		}
@@ -229,98 +328,55 @@ class AWP extends AudioWorkletProcessor {
 
 
 
-// for (const fileID in this.Files.files){
-
-// 	const fileObj = this.Files.files[fileID]
-// 	const channels = fileObj.waveform.channels
-	
-// 	for (const meta of fileObj.metas){
-		
-// 		let P = this.Clock.position.samples
-// 		let idx = P - meta[0] 
-		
-// 		if (idx >= 0 && idx < (fileObj.audio.length - meta[2])) {
-			
-// 			idx += meta[1]
-			
-// 			for (let frame = 0; frame < frames; frame++){
-// 				idx += frame
-				
-// 				for (let ch = 0; ch < channels; ch++){
-// 					idx += ch
-// 					outputDevice[ch][frame] = fileObj.audio[idx] / 32768
-// 				}
-// 			}
-			
-// 		}			
-
-// 	}
-// }
-
-
-
-
-//   if (this.Clock.position.samples > fileObj.metas[0]){
-	
-// 	for (let frame = 0; frame < frames; frame++){
-// 		let sourceIdx = fileObj.metas[1] + fileObj.metas[3]
-// 		for (let ch = 0; ch < channels; ch++){
-// 			const sample = fileObj.audio[sourceIdx] / 32768
-// 			outputDevice[ch][frame] = sample
-// 			sourceIdx++
-// 		}
-
-// 		fileObj.metas[3] += channels
-// 	}
-	
-
-
-
-// }
 
 
 
 
 
+//check for any metas for this clip id that already exist
+					//find the timeline slot it currently occupies and remove it from there
+					//let prevMeta = fileObj.metas[clipId]
+					// if (prevMeta){
+					// 	let prevSlot = prevMeta[0] - (prevMeta[0] % 128)
+						
+					// 	delete this.Files.timeline[prevSlot]
+					// }
 
+					//update fileObj - do we still need this structure as it is?
+					//fileObj.metas[clipId] = meta
+									
+					//check the transport stack for this meta
+					// for (const [i, m] of this.Transport.stack.entries()){
+					// 	if (m[3] === clipId) {
+					// 		console.log('Replacing Transport Slot')
+					// 		this.Transport.stack[i] = meta
+					// 	}
+					// }
 
+					//calculate new slot
+					//let slot = fileObj.metas[clipId][0] - (fileObj.metas[clipId][0] % 128)
+					
+					//if slot already exists - check attached metas and see if any match our clipID
+					//meta: --> [start, leftTrim, rightTrim, clipId, fileID]
+					//if (this.Files.timeline[slot]){
+						
+						// for (const [i, m] of this.Files.timeline[slot].entries()){
+						// 	if (m[3] === clipId) {
+						// 		console.log('Replacing Timeline Slot')
+						// 		this.Files.timeline[slot][i] = meta
+						// 		return
+						// 	}
+						// }
 
+						//if this clip is new to this slot, just add it
+						//this.Files.timeline[slot].push(meta)
+					//}
 
+					//else {
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+						//if the slot doesn't exist -- create it and add the meta
+						//this.Files.timeline[slot] = [fileObj.metas[clipId]]
+					//}
 
 
 
