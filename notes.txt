@@ -1,0 +1,22 @@
+Unit Testing -
+Small chunks
+-- loads test wav file
+-- executes mouse drag
+-- checks values of metas (non zero?)
+
+-- At the level of the meaning of your application
+-- Non brittle test is good for a useful API
+
+
+
+
+
+
+
+Integration Testing -
+-- load in wav file, trim x amount, x should  
+
+
+Pipeline wise testing
+
+

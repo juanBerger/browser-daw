@@ -9,6 +9,9 @@ window.onload = e => {
     console.log(convolve(false))
     const app = document.getElementById('app')
     const trackArea = new TrackArea({target: app})
+
+  
+
 }
 
 
