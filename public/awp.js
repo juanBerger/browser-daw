@@ -12,7 +12,8 @@ class AWP extends AudioWorkletProcessor {
 			if (e.data.playState){
 				console.log(e.data.playState)
 				this.Clock.updateState(e.data)
-				this.setOrClear(e.data.playState);
+				if (e.data.playState === 'stop')
+					this.clearTransportStack();
 
 			}
 
@@ -34,6 +35,7 @@ class AWP extends AudioWorkletProcessor {
 				
 
 				this.Clock.snap(time)
+				this.Clock.totalSamples = e.data.snap
 				this.port.postMessage({snap: e.data.snap})
 
 			}
@@ -155,7 +157,9 @@ class AWP extends AudioWorkletProcessor {
 					//use wav parser util to check data type
 					const audio = new Int16Array(audioBuffer.slice(44, audioBuffer.byteLength)) //int16 only for now
 					const waveform = this._generateWaveForm(audio, 'int16')
-					
+
+					console.log(audio, waveform)
+
 					this.files[fileId] = {
 						audio: audio,
 						waveform: waveform,
@@ -269,10 +273,11 @@ class AWP extends AudioWorkletProcessor {
 				samples: 0,
 			},
 
+			totalSamples: 0,
+
 			updateState(updateObj){
 				if (updateObj.startPos !== null) this.snap(updateObj.startPos)
 				updateObj.playState === 'play' ? this.isPlaying = true : this.isPlaying = false
-				console.log(this.isPlaying)
 				
 			},
 			
@@ -288,6 +293,10 @@ class AWP extends AudioWorkletProcessor {
 
 			tick(frameSize) {
 				
+
+				this.totalSamples += frameSize
+
+				//this version of the clock should maybe be done on the front end//
 				this.position.samples += frameSize
 				if (this.position.samples % 48000 === 0){ //sample rate
 					this.position.seconds++    
@@ -315,12 +324,9 @@ class AWP extends AudioWorkletProcessor {
 		}  
 	}
 
-	setOrClear(playState){
-		
-		if (playState === 'stop'){
-			this.Transport.stack = [];
-			console.log('Cleared Transport Stack')
-		}
+	clearTransportStack(){
+		this.Transport.stack = [];
+		console.log('Cleared Transport Stack')
 	}
 
 
@@ -370,7 +376,11 @@ class AWP extends AudioWorkletProcessor {
 							for (let ch = 0; ch < channels; ch++){
 								idx += ch          
 								let sample = fileObj.audio[idx * channels] / 32768 //scale the value of idx to +/- playback speed
-							
+								
+								// if (sample > 0.9 || sample < -0.9){
+								// 	console.log('stop')
+								// }
+								
 								if (ch === 0){
 									let sq = sample * sample
 									ampliArray[0] += sq
@@ -396,14 +406,14 @@ class AWP extends AudioWorkletProcessor {
 
 				for (const track in this.Tracks.tracks){
 					let amp = this.Tracks.tracks[track].amplitude[0]
-					let rms = Math.sqrt((1/128) * amp) * 5
+					let rms = Math.sqrt((1/128) * amp);
 					this.port.postMessage({amplitude: {track: track, amplitude: rms}})
 				}
 			
 			}
 			
 			this.Clock.tick(frames)
-			this.port.postMessage({tick: this.Clock.position})
+			this.port.postMessage({samplesTick: this.Clock.totalSamples})
 		}
 
 

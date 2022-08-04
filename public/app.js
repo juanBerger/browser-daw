@@ -438,8 +438,6 @@ const AudioCore = {
                 this.getWaveFormResult = e.data.setWaveform;
                 return
             }
-
-            console.log(e.data);
             
             this.onMessageCallbacks.forEach(cb => cb(e));
         };
@@ -970,7 +968,7 @@ function create_fragment$5(ctx) {
 	return {
 		c() {
 			div = element("div");
-			attr(div, "class", "trackRow track svelte-lvj3q0");
+			attr(div, "class", "trackRow track svelte-o8aap2");
 		},
 		m(target, anchor) {
 			insert(target, div, anchor);
@@ -1048,12 +1046,12 @@ function create_fragment$4(ctx) {
 			div1 = element("div");
 			div0 = element("div");
 			attr(div0, "id", "meterMask");
-			attr(div0, "class", "svelte-tipvwi");
+			attr(div0, "class", "svelte-a5zkyk");
 			attr(div1, "id", "meterColors");
-			attr(div1, "class", "svelte-tipvwi");
+			attr(div1, "class", "svelte-a5zkyk");
 			attr(div2, "id", "meterMat");
-			attr(div2, "class", "svelte-tipvwi");
-			attr(div3, "class", "trackRow meter svelte-tipvwi");
+			attr(div2, "class", "svelte-a5zkyk");
+			attr(div3, "class", "trackRow meter svelte-a5zkyk");
 		},
 		m(target, anchor) {
 			insert(target, div3, anchor);
@@ -1157,15 +1155,16 @@ function instance$2($$self, $$props, $$invalidate) {
 
 		//need a guard here - revisit selectors thing
 		const handlePlayHeadMessage = e => {
-			if (e.data.tick) {
-				if (e.data.tick.samples - _lastSampleValue >= get_store_value(framesPerPixel) && _isPlaying) {
-					_pixelPosition = Math.round(e.data.tick.samples / get_store_value(framesPerPixel)); // + any scrolled amount
+			if (e.data.samplesTick) {
+				if (e.data.samplesTick - _lastSampleValue >= get_store_value(framesPerPixel) && _isPlaying) {
+					_pixelPosition = Math.round(e.data.samplesTick / get_store_value(framesPerPixel)); // + any scrolled amount
 					updateStyle();
-					_lastSampleValue = e.data.tick.samples;
+					_lastSampleValue = e.data.samplesTick;
 				}
 			} else if (e.data.snap) {
 				_pixelPosition = Math.round(e.data.snap / get_store_value(framesPerPixel)); // + any scrolled amount
 				updateStyle();
+				console.log(e.data.snap);
 				_lastSampleValue = e.data.snap;
 			}
 		};
@@ -1483,12 +1482,15 @@ function create_fragment(ctx) {
 	};
 }
 
+let TOTAL_PADDING = 9;
+
 function instance($$self, $$props, $$invalidate) {
 	let _this;
 
 	onMount(e => {
 		_this.addEventListener('click', e => {
-			let newPos = e.offsetX * get_store_value(framesPerPixel);
+			let newPos = (e.offsetX - TOTAL_PADDING) * get_store_value(framesPerPixel);
+			console.log(newPos, e.offsetX);
 
 			if (AudioCore.awp) {
 				AudioCore.awp.port.postMessage({ snap: newPos });

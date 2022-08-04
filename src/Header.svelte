@@ -9,11 +9,13 @@ import { AudioCore } from './audio-utils.js'
 
 
 let _this;
+let TOTAL_PADDING = 9;
 
 onMount(e => {
 
     _this.addEventListener('click', e => {
-        let newPos = e.offsetX * get(framesPerPixel)
+        let newPos = (e.offsetX - TOTAL_PADDING) * get(framesPerPixel)
+        console.log(newPos, e.offsetX)
         if (AudioCore.awp){
             AudioCore.awp.port.postMessage({snap: newPos})     
         }  

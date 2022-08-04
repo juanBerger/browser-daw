@@ -26,8 +26,6 @@ export const AudioCore = {
                 this.getWaveFormResult = e.data.setWaveform;
                 return
             }
-
-            console.log(e.data)
             
             this.onMessageCallbacks.forEach(cb => cb(e))
         }

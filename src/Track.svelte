@@ -43,7 +43,7 @@ onMount(() => {
 
 
 .trackRow.track {
-    height: 10%;
+    /* height: 10%; */
     display: flex;
     border-bottom: 1px solid rgba(249, 206, 201, 0.373);
 

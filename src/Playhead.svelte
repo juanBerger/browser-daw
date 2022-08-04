@@ -23,11 +23,11 @@ onMount(async () => {
     const handlePlayHeadMessage = e => {
         
         
-        if (e.data.tick){
-            if (e.data.tick.samples - _lastSampleValue >= (get(framesPerPixel)) && _isPlaying){
-                _pixelPosition = Math.round(e.data.tick.samples / get(framesPerPixel)) // + any scrolled amount
+        if (e.data.samplesTick){
+            if (e.data.samplesTick - _lastSampleValue >= (get(framesPerPixel)) && _isPlaying){
+                _pixelPosition = Math.round(e.data.samplesTick / get(framesPerPixel)) // + any scrolled amount
                 updateStyle()
-                _lastSampleValue = e.data.tick.samples
+                _lastSampleValue = e.data.samplesTick
             }
         }
 
@@ -35,6 +35,7 @@ onMount(async () => {
         else if (e.data.snap){
             _pixelPosition = Math.round(e.data.snap / get(framesPerPixel)) // + any scrolled amount
             updateStyle()
+            console.log(e.data.snap)
             _lastSampleValue = e.data.snap
         }
       
