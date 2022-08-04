@@ -11,32 +11,10 @@ class AWP extends AudioWorkletProcessor {
 			
 			if (e.data.playState){
 				console.log(e.data.playState)
-				this.Clock.updateState(e.data)
-				if (e.data.playState === 'stop')
-					this.clearTransportStack();
-
+				this.Transport.updateState(e.data)
 			}
 
 			else if (e.data.snap){
-				
-				let time = [0,0,0,0]
-				let seconds = e.data.snap / 48000
-				let remainder = e.data.snap % 48000
-
-				time[2] = Math.floor(seconds)
-				time[3] = Math.floor(remainder)
-				if (seconds >= 60){
-					let minutes = seconds / 60
-					let remainder = seconds % 60
-					time[1] = Math.floor(minutes)
-					time[2] = Math.floor(remainder)
-				}
-
-				
-
-				this.Clock.snap(time)
-				this.Clock.totalSamples = e.data.snap
-				this.port.postMessage({snap: e.data.snap})
 
 			}
 
@@ -57,7 +35,6 @@ class AWP extends AudioWorkletProcessor {
 			else if (e.data.clear){
 				this.Transport.removeMetas(e.data.clear.clipId)
 				this.Files.removeMeta(e.data.clear.fileId, e.data.clear.clipId)
-				
 
 			}
 
@@ -82,6 +59,7 @@ class AWP extends AudioWorkletProcessor {
 
 					//new meta -- -- -- -- -- -- -- -- //
 					//find this meta and replace it (if it exists) in 3 locations. Timeline, transport, files
+					
 					this.Transport.syncMetaObjects(meta, prevMeta)
 					fileObj.metas[clipId] = meta
 					
@@ -186,8 +164,30 @@ class AWP extends AudioWorkletProcessor {
 
 		this.Transport = {
 			
+			isPlaying: false,
+			frameNumber: 0,
 			timeline: {},
 			stack: [],
+
+			tick(frames){ this.frameNumber += frames; },
+			snap(frameNumber){ this.frameNumber = frameNumber},
+
+			clearStack(){
+				this.stack = [];
+				console.log('Cleared Transport Stack')
+			},
+
+			updateState(updateObj){
+				
+				if(updateObj.playState === 'play') 
+					this.isPlaying = true;
+				else {
+					this.isPlaying = false;
+					this.snap(updateObj.startPos)
+					//this.clearStack();
+					
+				}				
+			},
 
 			removeMetas(clipId){
 				
@@ -260,87 +260,20 @@ class AWP extends AudioWorkletProcessor {
 
 		}
 
-
-		this.Clock = {
-
-			startPos: null,
-			isPlaying: false,
-			
-			position: {
-				hours: 0,
-				minutes: 0,
-				seconds: 0, 
-				samples: 0,
-			},
-
-			totalSamples: 0,
-
-			updateState(updateObj){
-				if (updateObj.startPos !== null) this.snap(updateObj.startPos)
-				updateObj.playState === 'play' ? this.isPlaying = true : this.isPlaying = false
-				
-			},
-			
-			//[hours, mins, seconds, samples]
-			snap(startPos){
-				if (startPos){
-					this.position.hours = startPos[0]
-					this.position.minutes = startPos[1]
-					this.position.seconds = startPos[2]
-					this.position.samples = startPos[3]
-				}
-			},
-
-			tick(frameSize) {
-				
-
-				this.totalSamples += frameSize
-
-				//this version of the clock should maybe be done on the front end//
-				this.position.samples += frameSize
-				if (this.position.samples % 48000 === 0){ //sample rate
-					this.position.seconds++    
-					console.log('Seconds: ', this.position.seconds) // 
-					      
-					
-					if (this.position.seconds % 60 === 0) {
-						this.position.seconds = 0
-						this.position.minutes++
-						console.log('Minutes: ', this.position.minutes) 
-						
-						if (this.position.minutes % 60 === 0){
-							this.position.hours++
-							console.log('Hours: ', this.position.hours) 
-							if (this.position.hours > 24){
-								this.position.hours = 0
-								this.position.minutes = 0
-								this.position.seconds = 0
-								this.position.samples = 0
-							}
-						}
-					}
-				}
-			}
-		}  
-	}
-
-	clearTransportStack(){
-		this.Transport.stack = [];
-		console.log('Cleared Transport Stack')
 	}
 
 
 	//trackObject
 
-	//each tick advances 128 samples when playback is started
+	//each tick advances 128 frames when playback is started
 	process (inputs, outputs, parameters) {
 		
 		let outputDevice = outputs[0]
 		let frames = outputDevice[0].length
 
-		if (this.Clock.isPlaying){			
+		if (this.Transport.isPlaying){			
 			
-			let P = this.Clock.position.samples
+			let P = this.Transport.frameNumber
 			let metas = this.Transport.timeline[P]
 			if (metas){
 				metas.forEach(meta => this.Transport.stack.push(meta))
@@ -348,10 +281,10 @@ class AWP extends AudioWorkletProcessor {
 
 			if (this.Transport.stack.length > 0){
 
-				// 0 - 127
+				//run through 0 to 127
 				for (let frame = 0; frame < frames; frame++){	
 
-					P = this.Clock.position.samples + frame
+					P = this.Transport.frameNumber + frame
 
 
 					for (const [index, meta] of this.Transport.stack.entries()){
@@ -412,8 +345,8 @@ class AWP extends AudioWorkletProcessor {
 			
 			}
 			
-			this.Clock.tick(frames)
-			this.port.postMessage({samplesTick: this.Clock.totalSamples})
+			this.Transport.tick(frames)
+			this.port.postMessage({tick: this.Transport.frameNumber})
 		}
 
 

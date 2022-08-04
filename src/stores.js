@@ -1,15 +1,13 @@
-import { writable, readable } from 'svelte/store'
+import { writable } from 'svelte/store'
 import { scaler } from './utils.js'
 
-//export const samplesPerPixel = writable(8000) //this is changed by the zoom setting
-//export const zoomStep = readable(384) //change this to an easing function
-
+import { AudioCore } from './audio-utils.js'
 
 const MIN_FPP = 25; 
 const MAX_FPP = 10000;
 const CHANNELS = 2;
 
-function _applyEasing (x) {
+function applyEasing (x) {
     const { set, update, subscribe } = writable(x);
     return {
         set,
@@ -32,6 +30,10 @@ function _applyEasing (x) {
     }
 }
 
-export const framesPerPixel = _applyEasing();
+export const framesPerPixel = applyEasing();
 
-export const files = writable({})
+export const currentFrame = writable(0);
+
+AudioCore.registerCallback(e => {
+    if (e.data.tick) currentFrame.set(e.data.tick)
+});

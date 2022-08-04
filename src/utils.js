@@ -1,4 +1,4 @@
-//(span of new range * real current delta / span of old range) + newRange
+//(span of new range * real current delta / span of old range) + newRangeMin
 export const scaler = (value, oldMin, oldMax, newMin, newMax) => {
     return (newMax - newMin) * (value - oldMin) / (oldMax - oldMin) + newMin
 }
@@ -12,7 +12,6 @@ export const wavParser = (header) => {
     const dtype = new Uint8Array(header.slice(34, 36))[0]
     return {ch: ch, sr: sr, dtype: dtype}
 }
-
 
 export function uuidv4() {
     return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => 

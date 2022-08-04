@@ -32,3 +32,30 @@
 //     }
 
 // }
+
+
+
+
+
+    // const handlePlayHeadMessage = e => {
+        
+        
+    //     if (e.data.tick){
+    //         if (e.data.tick - lastSampleValue >= (get(framesPerPixel)) && isPlaying){
+    //             pixelPosition = Math.round(e.data.tick / get(framesPerPixel)) 
+    //             updateStyle()
+    //             lastSampleValue = e.data.tick
+    //         }
+    //     }
+
+
+    //     // else if (e.data.snap){
+    //     //     pixelPosition = Math.round(e.data.snap / get(framesPerPixel))
+    //     //     updateStyle()
+    //     //     console.log(e.data.snap)
+    //     //     lastSampleValue = e.data.snap
+    //     // }
+      
+    // }
+
+    // AudioCore.registerCallback(handlePlayHeadMessage);

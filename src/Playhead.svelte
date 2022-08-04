@@ -1,51 +1,34 @@
 <script>
 
-import { onMount } from 'svelte';
+import { onMount, onDestroy } from 'svelte';
 import { get } from 'svelte/store'
-import { framesPerPixel } from './stores.js'
+import { framesPerPixel, currentFrame } from './stores.js'
 
 import { AudioCore } from './audio-utils.js'
 
 export let height;
 
 let _this;
-let _isPlaying = false;
-let _lastSampleValue = 0;
-let _pixelPosition = 0;
+let isPlaying = false;
+let modifierKey = false; //TEMP
 
+const updateStyle = (pixelPosition) => _this.style.setProperty('--playhead-pos', pixelPosition + 'px');
+
+const unsub = currentFrame.subscribe(frame => {
+    let pixelPosition = frame / get(framesPerPixel);
+    console.log(pixelPosition)
+    if (_this){
+        updateStyle(pixelPosition);
+    }
+});
+
+
+onDestroy(() => {unsub();})
 
 onMount(async () => {
 
-    //the counter has to map the playhead to a specific pixel. This is based on samplesPerPixrel // 
-    const updateStyle = () => _this.style.setProperty('--playhead-pos', _pixelPosition + 'px');
-    
-    //need a guard here - revisit selectors thing
-    const handlePlayHeadMessage = e => {
-        
-        
-        if (e.data.samplesTick){
-            if (e.data.samplesTick - _lastSampleValue >= (get(framesPerPixel)) && _isPlaying){
-                _pixelPosition = Math.round(e.data.samplesTick / get(framesPerPixel)) // + any scrolled amount
-                updateStyle()
-                _lastSampleValue = e.data.samplesTick
-            }
-        }
-
-
-        else if (e.data.snap){
-            _pixelPosition = Math.round(e.data.snap / get(framesPerPixel)) // + any scrolled amount
-            updateStyle()
-            console.log(e.data.snap)
-            _lastSampleValue = e.data.snap
-        }
-      
-    }
-
-    AudioCore.registerCallback(handlePlayHeadMessage);
-
     //* PLAYHEAD *//
-    document.addEventListener('keydown', async e => {
-        
+    window.addEventListener('keydown', async e => {
 
         //In this case - no clips have been added
         if (!AudioCore.awp) await AudioCore.create()
@@ -53,23 +36,22 @@ onMount(async () => {
         if (AudioCore.audioContext.state === 'suspended') await AudioCore.audioContext.resume()
     
         if (e.key != ' ') return
-
-        //** TEMP */
-        let startPos = [0, 0, 0, 0]
-
-        if(!_isPlaying){
-            _isPlaying = true
-            AudioCore.awp.port.postMessage({playState: 'play', startPos: null});
+                
+        let playState = 'stop'
+        if (!isPlaying){
+            isPlaying = true;
+            playState === 'play';
         }
 
-        else {
-            _isPlaying = false
-            AudioCore.awp.port.postMessage({playState: 'stop', startPos: null});
-            //_lastSampleValue = 0;
-            //_pixelPosition = 0;
-            //updateStyle();
+        let startPos = get(currentFrame);
+        if (modifierKey){
+            startPos = 0
+            currentFrame.set(0)
+            updateStyle()
         }
 
+        //AudioCore.awp.port.postMessage({playState: playState, startPos: startPos});
+           
     })
 
 })
@@ -90,7 +72,7 @@ $: {
 
 <style>
 
-div {
+#playhead {
 
     --playhead-height: 0px;
     --playhead-pos: 0px;
