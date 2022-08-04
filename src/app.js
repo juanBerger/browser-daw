@@ -1,5 +1,7 @@
 import './styles.css'
 import TrackArea from './TrackArea.svelte'
+import LeftArea from  './LeftArea.svelte'
+import Header from './Header.svelte'
 
 import {convolve} from './audio-utils.js'
 
@@ -8,7 +10,9 @@ window.onload = e => {
 
     console.log(convolve(false))
     const app = document.getElementById('app')
-    const trackArea = new TrackArea({target: app})
+    const leftArea = new LeftArea({target: app})
+    const trackArea = new TrackArea({ target: app})
+    const header = new Header({target: app})
 }
 
 

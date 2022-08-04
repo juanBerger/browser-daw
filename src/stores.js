@@ -5,9 +5,10 @@ import { scaler } from './utils.js'
 //export const zoomStep = readable(384) //change this to an easing function
 
 
-//** ISSUES */
-const MIN_SPP = 25; 
-const MAX_SPP = 10000;
+const MIN_FPP = 25; 
+const MAX_FPP = 10000;
+const CHANNELS = 2;
+
 function _applyEasing (x) {
     const { set, update, subscribe } = writable(x);
     return {
@@ -20,9 +21,10 @@ function _applyEasing (x) {
             //let eased = x < 0.5 ? 16 * x * x * x * x * x : 1 - Math.pow(-2 * x + 2, 5) / 2;
             //this needs to get much slower as it gets closer to MIN_SPP
             let eased = x
-            let scaled = Math.round(scaler(eased, 0, 30, MIN_SPP, MAX_SPP))
-            scaled % 2 === 0 ? scaled = scaled : scaled += scaled //2 here is number of channels
-            console.log('[CURRENT SPP]...', scaled)
+            let scaled = Math.round(scaler(eased, 0, 30, MIN_FPP, MAX_FPP))
+            //scaled % CHANNELS === 0 ? scaled = scaled : scaled += scaled 
+            scaled /= CHANNELS
+            console.log('[CURRENT FPP]...', scaled)
             set(scaled)
             
         },
@@ -30,6 +32,6 @@ function _applyEasing (x) {
     }
 }
 
-export const samplesPerPixel = _applyEasing();
+export const framesPerPixel = _applyEasing();
 
 export const files = writable({})

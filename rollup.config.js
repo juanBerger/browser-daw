@@ -6,7 +6,8 @@ import copy from 'rollup-plugin-copy';
 
 //Add any files here not part of the build graph
 const externalWatchFiles = [
-  'src/awp.js'
+  'src/awp.js',
+  'public/index.html'
 ]
 
 export default {

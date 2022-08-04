@@ -2,13 +2,16 @@
 
 import { onMount } from 'svelte';
 import { get } from 'svelte/store'
-import { samplesPerPixel } from './stores.js'
+import { framesPerPixel } from './stores.js'
+import { uuidv4 } from './utils.js';
 
 import Track from './Track.svelte'
-import Strip from './Strip.svelte'
+import Meter from './Meter.svelte'
 import Playhead from './Playhead.svelte'
 
 import { AudioCore } from './audio-utils.js'
+
+export let leftArea;
 
 //* Playhead related *//
 let _this;
@@ -18,39 +21,6 @@ let playheadHeight = 0;
 
 let SR = 48000
 let NUM_HOURS = 1
-
-//update this to work on fire fox
-async function buttonClicked(e){
-    
-    const fileObj = await readFile()
-    if (fileObj[0].byteLength > 0){
-
-        if (!AudioCore.awp) await AudioCore.create()
-
-        else if (AudioCore.audioContext.state === 'suspended'){
-            await AudioCore.audioContext.resume()
-            console.log(AudioCore.audioContext.state)
-        }
-
-        //this is like a function call which we will await -- success = unique id. AWP determined if dup or not
-        let id = await AudioCore.addFile(fileObj[0], fileObj[1].name.split('.wav')[0])
-        
-        if (id !== null) {
-            //if (hovering over existing track){
-                //add to that track
-            //}
-            //else:
-            const track = new Track({
-                target: _this,
-                props: {
-                    fileId: id //could be multiple?
-                }
-            })
-        }
-
-    }
-
-}
 
 
 const readFile = async () => {
@@ -66,15 +36,13 @@ const readFile = async () => {
 
 onMount(async () => {
 
-    
     //** SET TO MAX WIDTH*/
     let totalSamples = SR * 60 * 60 * NUM_HOURS
     AudioCore.totalSamples = totalSamples
-    samplesPerPixel.ease(_zoomStep)
-    let pixelWidth = String(Math.round(totalSamples / get(samplesPerPixel)))
+    framesPerPixel.ease(_zoomStep)
+    let pixelWidth = String(Math.round(totalSamples / get(framesPerPixel)))
     _this.style.setProperty('--trackArea-width', pixelWidth + 'px')
     
-
 
     /** LISTEN TO THIS RESIZE */
     const resizeObserver = new ResizeObserver(entries => {
@@ -90,7 +58,8 @@ onMount(async () => {
         if (e.key === 'r' || e.key === 't'){
             if (e.key === 'r') _zoomStep >= 30 ? _zoomStep = _zoomStep : _zoomStep++
             else _zoomStep <= 0 ? _zoomStep = _zoomStep : _zoomStep--
-            samplesPerPixel.ease(_zoomStep)
+            framesPerPixel.ease(_zoomStep)
+            console.log('[ZOOMING]')
         }          
     })
 
@@ -117,20 +86,33 @@ onMount(async () => {
                     console.log(AudioCore.audioContext.state)
                 }
                 
-                //this is like a function call which we will await -- success = unique id. AWP determined if dup or not
+                console.log(handle)
                 let id = await AudioCore.addFile(audioBuffer, file.name.split('.wav')[0])
-                
+                console.log(id)
                 if (id !== null) {
                     //if (hovering over existing track){
                         //add to that track
                     //}
                     //else:
+                    let trackId = uuidv4();
                     const track = new Track({
                         target: _this,
                         props: {
-                            fileId: id //could be multiple?
+                            fileId: id,
+                            trackId: trackId,
+                            parent: _this
                         }
                     })
+
+                    let leftArea = document.getElementsByClassName('leftArea')[0];
+                    const meter = new Meter({
+                        target: leftArea,
+                        props: {
+                            fileId: id,
+                            trackId: trackId,
+                        }
+                    })
+                    
                 }
                 
             }
@@ -143,21 +125,12 @@ onMount(async () => {
 </script>
 
 <div bind:this={_this} id='trackArea'>
-    
-    <button id='button' on:click={buttonClicked}>Load a file</button>    
-    
     {#if _this}
         <Playhead height={playheadHeight}/>
     {/if}
 </div>
 
 <style>
-
-#button {
-
-    width: 300px;
-
-}
 
 #trackArea {
 
@@ -169,44 +142,9 @@ onMount(async () => {
     flex-direction: column;
     margin: 0.8em;
     width: var(--trackArea-width);
-    /* overflow: hidden; */
 }
 
 </style>
-
-
-
-
-
-
-<!-- 
-
-//* for use with picker *//
-const readFile = async () => {
-    const [handle] = await window.showOpenFilePicker({
-        types: [{ description: 'Pro Tools Session Files', accept: {'application/octet-stream': ['.wav']}}],
-        startIn: 'desktop'}) 
-    const file = await handle.getFile()
-    const buffer = await file.arrayBuffer()
-    return buffer
-}
- -->
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

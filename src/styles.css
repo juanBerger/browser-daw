@@ -19,7 +19,7 @@ body {
 
 #vDivider {
 
-    grid-column-start: 2;
+    grid-column-start: 2;   
     grid-row: 1/-1;
     height: 99%;
     margin: auto;
@@ -36,12 +36,9 @@ body {
     border-bottom: 1px dotted grey; 
 }
 
-.track {
-    display: flex;
-    border-bottom: 1px solid rgba(249, 206, 201, 0.373);
-    height: 45%;
+
+.trackRow {
+    height: 10%;
 
 }
-
-
 

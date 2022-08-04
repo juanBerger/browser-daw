@@ -16,6 +16,28 @@ class AWP extends AudioWorkletProcessor {
 
 			}
 
+			else if (e.data.snap){
+				
+				let time = [0,0,0,0]
+				let seconds = e.data.snap / 48000
+				let remainder = e.data.snap % 48000
+
+				time[2] = Math.floor(seconds)
+				time[3] = Math.floor(remainder)
+				if (seconds >= 60){
+					let minutes = seconds / 60
+					let remainder = seconds % 60
+					time[1] = Math.floor(minutes)
+					time[2] = Math.floor(remainder)
+				}
+
+				
+
+				this.Clock.snap(time)
+				this.port.postMessage({snap: e.data.snap})
+
+			}
+
 			else if (e.data.file){
 				let id = this.Files.add(e.data.file, e.data.filename)
 				this.port.postMessage({id: id})
@@ -28,6 +50,13 @@ class AWP extends AudioWorkletProcessor {
 				}
 				
 				this.port.postMessage({setWaveform: response.waveform})
+			}
+
+			else if (e.data.clear){
+				this.Transport.removeMetas(e.data.clear.clipId)
+				this.Files.removeMeta(e.data.clear.fileId, e.data.clear.clipId)
+				
+
 			}
 
 			else if (e.data.trims){
@@ -44,12 +73,16 @@ class AWP extends AudioWorkletProcessor {
 					let meta = e.data.trims.meta
 					meta.push(e.data.trims.clipId) //add clipId to meta
 					meta.push(e.data.trims.fileId) //add fileId to meta
+					meta.push(e.data.trims.trackId) //add trackId to meta
+					if (!this.Tracks.tracks[e.data.trims.trackId]){
+						this.Tracks.tracks[e.data.trims.trackId] = {amplitude: this.Tracks.genertateAmplitudeArray()}
+					}
 
 					//new meta -- -- -- -- -- -- -- -- //
 					//find this meta and replace it (if it exists) in 3 locations. Timeline, transport, files
 					this.Transport.syncMetaObjects(meta, prevMeta)
 					fileObj.metas[clipId] = meta
-					console.log(this.Transport.timeline)
+					
 					
 				}
 			}
@@ -70,7 +103,7 @@ class AWP extends AudioWorkletProcessor {
 					'int16': [-32768, 32767]
 				}
 
-				const density = 200; //has to be density % numChannels = 0 --> this means next chunk always starts on a L sample if we index starting at 0 (and we are interleaved)
+				let density = 200; //has to be density % numChannels = 0 --> this means next chunk always starts on a L sample if we index starting at 0 (and we are interleaved)
 				const height = 4000; //this is in pixels and is arbitrary since varying track heights will stretch and squash whatever the instrinsic height actually is. There is prob a sane default here
             	const channels = 2;
 
@@ -95,11 +128,23 @@ class AWP extends AudioWorkletProcessor {
 				return result
 			},
 
+			removeMeta(fileId, clipId){
+				let fileObj = this.files[fileId];
+				if (fileObj){
+					fileObj.metas[clipId] ? 
+					delete fileObj.metas[clipId] : 
+					console.error('Clip Id Not Found In Files.files');
+				}
+				
+				console.log(this.files)
+			},
+
+
 			//https://github.com/pierrec/js-xxhash try this to create a hash
 			add(audioBuffer, filename){
 				
 				let fileId = uuidv5(filename, this.NAMESPACE)
-				
+
 				if (fileId in this.files){
 					console.warn('File already in the bin')
 					return fileId
@@ -118,6 +163,7 @@ class AWP extends AudioWorkletProcessor {
 						playbackOffset: 0,
 					}
 					
+					console.log(filename, fileId)
 					return fileId
 
 				}
@@ -125,10 +171,39 @@ class AWP extends AudioWorkletProcessor {
 
 		}
 
+		this.Tracks = {
+
+			genertateAmplitudeArray(){
+				return new Float32Array(128)
+			},
+
+			tracks: {} 
+		}
+
 		this.Transport = {
 			
 			timeline: {},
 			stack: [],
+
+			removeMetas(clipId){
+				
+				for (const slot in this.timeline) {
+					let metas = this.timeline[slot]
+					for (const [i, m] of metas.entries()){
+						if (m[3] === clipId){
+							metas.splice(i, 1)
+							console.log('Deleted clip removed from timeline slot(s)');
+						}
+					}
+				}
+
+				for (const [i, m] of this.stack.entries()){
+					if (m[3] === clipId){
+						this.stack.splice(i, 1)
+						console.log('Deleted clip removed from transport stack');
+					}
+				}
+			},
 
 			syncMetaObjects(meta, prevMeta) {
 
@@ -195,8 +270,9 @@ class AWP extends AudioWorkletProcessor {
 			},
 
 			updateState(updateObj){
-				this.snap(updateObj.startPos)
+				if (updateObj.startPos !== null) this.snap(updateObj.startPos)
 				updateObj.playState === 'play' ? this.isPlaying = true : this.isPlaying = false
+				console.log(this.isPlaying)
 				
 			},
 			
@@ -248,6 +324,8 @@ class AWP extends AudioWorkletProcessor {
 	}
 
 
+	//trackObject
+
 	//each tick advances 128 samples when playback is started
 	process (inputs, outputs, parameters) {
 		
@@ -264,14 +342,18 @@ class AWP extends AudioWorkletProcessor {
 
 			if (this.Transport.stack.length > 0){
 
+				// 0 - 127
 				for (let frame = 0; frame < frames; frame++){	
 
 					P = this.Clock.position.samples + frame
 
+
 					for (const [index, meta] of this.Transport.stack.entries()){
 					
-						let fileObj = this.Files.files[meta[4]]
-						let idx = P - meta[0]
+						let fileObj = this.Files.files[meta[4]];
+						let idx = P - meta[0];
+						let ampliArray = this.Tracks.tracks[meta[5]].amplitude;
+						ampliArray[frame] = 0; //clear any previous amplitude
 
 						if (idx >= 0) {
 						
@@ -284,27 +366,41 @@ class AWP extends AudioWorkletProcessor {
 								continue;
 							}
 							
+							
 							for (let ch = 0; ch < channels; ch++){
 								idx += ch          
 								let sample = fileObj.audio[idx * channels] / 32768 //scale the value of idx to +/- playback speed
+							
+								if (ch === 0){
+									let sq = sample * sample
+									ampliArray[0] += sq
+								}
 								
+
 								let prevValue = outputDevice[ch][frame]
 								sample += prevValue
+								
 								sample > 1.0 ? sample = 1.0 : sample = sample
 								sample < -1.0 ? sample = -1.0 : sample = sample
 
 								outputDevice[ch][frame] = sample
 							}
+
+						
 						}
 
 					}
 
 				}
-	
+
+
+				for (const track in this.Tracks.tracks){
+					let amp = this.Tracks.tracks[track].amplitude[0]
+					let rms = Math.sqrt((1/128) * amp) * 5
+					this.port.postMessage({amplitude: {track: track, amplitude: rms}})
+				}
 			
 			}
-			
-			
 			
 			this.Clock.tick(frames)
 			this.port.postMessage({tick: this.Clock.position})

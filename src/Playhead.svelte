@@ -2,7 +2,7 @@
 
 import { onMount } from 'svelte';
 import { get } from 'svelte/store'
-import { samplesPerPixel, files } from './stores.js'
+import { framesPerPixel } from './stores.js'
 
 import { AudioCore } from './audio-utils.js'
 
@@ -16,25 +16,39 @@ let _pixelPosition = 0;
 
 onMount(async () => {
 
+    //the counter has to map the playhead to a specific pixel. This is based on samplesPerPixrel // 
+    const updateStyle = () => _this.style.setProperty('--playhead-pos', _pixelPosition + 'px');
+    
+    //need a guard here - revisit selectors thing
+    const handlePlayHeadMessage = e => {
+        
+        
+        if (e.data.tick){
+            if (e.data.tick.samples - _lastSampleValue >= (get(framesPerPixel)) && _isPlaying){
+                _pixelPosition = Math.round(e.data.tick.samples / get(framesPerPixel)) // + any scrolled amount
+                updateStyle()
+                _lastSampleValue = e.data.tick.samples
+            }
+        }
+
+
+        else if (e.data.snap){
+            _pixelPosition = Math.round(e.data.snap / get(framesPerPixel)) // + any scrolled amount
+            updateStyle()
+            _lastSampleValue = e.data.snap
+        }
+      
+    }
+
+    AudioCore.registerCallback(handlePlayHeadMessage);
+
     //* PLAYHEAD *//
     document.addEventListener('keydown', async e => {
         
-        
-        //the counter has to map the playhead to a specific pixel. This is based on samplesPerPixrel // 
-        const updateStyle = () => _this.style.setProperty('--playhead-pos', _pixelPosition + 'px');
-        const handlePlayHeadMessage = (awp_e) => {
-            if (awp_e.data.tick.samples - _lastSampleValue >= (get(samplesPerPixel)) && _isPlaying){
-                _pixelPosition = Math.round(awp_e.data.tick.samples / get(samplesPerPixel)) // + any scrolled amount
-                updateStyle()
-                _lastSampleValue = awp_e.data.tick.samples
-            }
-        }
 
         //In this case - no clips have been added
         if (!AudioCore.awp) await AudioCore.create()
         
-        AudioCore.awp.port.onmessage = awp_e => handlePlayHeadMessage(awp_e);
-
         if (AudioCore.audioContext.state === 'suspended') await AudioCore.audioContext.resume()
     
         if (e.key != ' ') return
@@ -44,15 +58,15 @@ onMount(async () => {
 
         if(!_isPlaying){
             _isPlaying = true
-            AudioCore.awp.port.postMessage({playState: 'play', startPos: startPos});
+            AudioCore.awp.port.postMessage({playState: 'play', startPos: null});
         }
 
         else {
             _isPlaying = false
-            AudioCore.awp.port.postMessage({playState: 'stop', startPos: startPos});
-            _lastSampleValue = 0;
-            _pixelPosition = 0;
-            updateStyle();
+            AudioCore.awp.port.postMessage({playState: 'stop', startPos: null});
+            //_lastSampleValue = 0;
+            //_pixelPosition = 0;
+            //updateStyle();
         }
 
     })

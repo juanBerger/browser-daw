@@ -5,26 +5,69 @@ export const AudioCore = {
     audioContext: null,
     awp: null,
     totalSamples: 0,
+    onMessageCallbacks: [],
+    addFileResult: -1,
+    getWaveFormResult: -1,
 
-    //move this to AudioCore
-    addFile (arrayBuffer, filename) {
-        return new Promise((resolve, reject) => {
-            this.awp.port.onmessage = e => {
-                if (e.data.id != null) resolve(e.data.id)
-                else reject(null)
+    registerCallback(callback){
+        this.onMessageCallbacks.push(callback)
+    },
+
+    initOnMessage(){
+        this.awp.port.onmessage = e => {
+            
+            //special cases
+            if (e.data.id){
+                this.addFileResult = e.data.id;
+                return
             }
+
+            else if (e.data.setWaveform){
+                this.getWaveFormResult = e.data.setWaveform;
+                return
+            }
+
+            console.log(e.data)
+            
+            this.onMessageCallbacks.forEach(cb => cb(e))
+        }
+    },
+
+    addFile (arrayBuffer, filename) {
+        
+        return new Promise((resolve, reject) => {
+            
+            const interval = setInterval(() => {
+                
+                if(this.addFileResult !== -1){
+                    clearInterval(interval);
+                    let result = this.addFileResult
+                    this.addFileResult = - 1;
+                    this.addFileResult !== null ? resolve(result) : reject(result);
+                }
+            
+            }, 3)
             
             this.awp.port.postMessage({file: arrayBuffer, filename: filename}, [arrayBuffer])
         })
     },
 
-    //re
+
     getWaveform (id){
         return new Promise((resolve, reject) => {
-            this.awp.port.onmessage = e => {
-                if (e.data.setWaveform != null) resolve(e.data.setWaveform)
-                else reject(null)
-            }
+            
+            const interval = setInterval(() => {
+    
+                if(this.getWaveFormResult !== -1){
+                    clearInterval(interval);
+                    let result = this.getWaveFormResult;
+                    this.getWaveFormResult = -1;
+                    this.getWaveFormResult !== null ? resolve(result) : reject(result);
+                }
+            
+            }, 3)
+            
+        
             this.awp.port.postMessage({getWaveform: id})
             
         })
@@ -40,9 +83,10 @@ export const AudioCore = {
         this.audioContext = new AudioContext({latencyHint: 0, sampleRate: 48000});
         await this.audioContext.audioWorklet.addModule('./awp.js')
         this.awp = new AudioWorkletNode(this.audioContext, 'awp', {numberOfInputs: [1], numberOfOutputs: [1], outputChannelCount: [2]});
-        this.awp.connect(this.audioContext.destination)
-        console.log('Created Audio Context: ', this.audioContext)
-        return Promise.resolve()
+        this.awp.connect(this.audioContext.destination);
+        console.log('Created Audio Context: ', this.audioContext);
+        this.initOnMessage();
+        return Promise.resolve();
     }
 
 
