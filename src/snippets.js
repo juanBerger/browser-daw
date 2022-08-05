@@ -59,3 +59,55 @@
     // }
 
     // AudioCore.registerCallback(handlePlayHeadMessage);
+
+
+
+
+
+
+    
+
+
+    // const updateStyle = (pixelPosition) => _this.style.setProperty('--playhead-pos', pixelPosition + 'px');
+
+// const unsub = currentFrame.subscribe(frame => {
+//     let pixelPosition = frame / get(framesPerPixel);
+//     console.log(pixelPosition)
+//     if (_this){
+//         updateStyle(pixelPosition);
+//     }
+// });
+
+
+// onDestroy(() => {unsub();})
+
+onMount(async () => {
+
+    //* PLAYHEAD *//
+    document.addEventListener('keydown', async e => {
+
+        //In this case - no clips have been added
+        if (!AudioCore.awp) await AudioCore.create()
+        
+        if (AudioCore.audioContext.state === 'suspended') await AudioCore.audioContext.resume()
+    
+        if (e.key != ' ') return
+                
+        let playState = 'stop'
+        if (!isPlaying){
+            isPlaying = true;
+            playState === 'play';
+        }
+
+        let startPos = get(currentFrame);
+        if (modifierKey){
+            startPos = 0
+            currentFrame.set(0)
+            updateStyle()
+        }
+
+        //AudioCore.awp.port.postMessage({playState: playState, startPos: startPos});
+           
+    })
+
+})

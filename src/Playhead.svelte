@@ -2,7 +2,7 @@
 
 import { onMount, onDestroy } from 'svelte';
 import { get } from 'svelte/store'
-import { framesPerPixel, currentFrame } from './stores.js'
+import { framesPerPixel, currentFrame} from './stores.js'
 
 import { AudioCore } from './audio-utils.js'
 
@@ -10,13 +10,11 @@ export let height;
 
 let _this;
 let isPlaying = false;
-let modifierKey = false; //TEMP
-
+let modifierKey = false;
 const updateStyle = (pixelPosition) => _this.style.setProperty('--playhead-pos', pixelPosition + 'px');
 
 const unsub = currentFrame.subscribe(frame => {
     let pixelPosition = frame / get(framesPerPixel);
-    console.log(pixelPosition)
     if (_this){
         updateStyle(pixelPosition);
     }
@@ -25,37 +23,37 @@ const unsub = currentFrame.subscribe(frame => {
 
 onDestroy(() => {unsub();})
 
-onMount(async () => {
+onMount(() => {
 
     //* PLAYHEAD *//
-    window.addEventListener('keydown', async e => {
-
-        //In this case - no clips have been added
-        if (!AudioCore.awp) await AudioCore.create()
+    document.addEventListener('keydown', async e => {
         
-        if (AudioCore.audioContext.state === 'suspended') await AudioCore.audioContext.resume()
-    
+        if (!AudioCore.awp) await AudioCore.create()
+        if (AudioCore.audioContext.state == 'suspended') await AudioCore.audioContext.resume()
         if (e.key != ' ') return
-                
-        let playState = 'stop'
+
+        let playState;
         if (!isPlaying){
             isPlaying = true;
-            playState === 'play';
+            playState = 'play';
         }
 
-        let startPos = get(currentFrame);
-        if (modifierKey){
+        else {
+            playState = 'stop';
+            isPlaying = false;
+            if (modifierKey){
             startPos = 0
             currentFrame.set(0)
             updateStyle()
         }
+        }
 
-        //AudioCore.awp.port.postMessage({playState: playState, startPos: startPos});
-           
+        let startPos = get(currentFrame);
+    
+        AudioCore.awp.port.postMessage({playState: playState, startPos: startPos});
+
     })
-
 })
-
 
 $: {
 

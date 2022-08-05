@@ -34,6 +34,12 @@ export const framesPerPixel = applyEasing();
 
 export const currentFrame = writable(0);
 
+const unsub = currentFrame.subscribe(frame => {
+    if (AudioCore.awp){
+        AudioCore.awp.port.postMessage({snap: frame})
+    }
+});
+
 AudioCore.registerCallback(e => {
     if (e.data.tick) currentFrame.set(e.data.tick)
 });

@@ -1,11 +1,9 @@
 <script>
 
-import {framesPerPixel} from './stores';
+import {framesPerPixel, currentFrame} from './stores';
 
 import { onMount } from "svelte";
 import { get } from 'svelte/store';
-
-import { AudioCore } from './audio-utils.js'
 
 
 let _this;
@@ -15,10 +13,7 @@ onMount(e => {
 
     _this.addEventListener('click', e => {
         let newPos = (e.offsetX - TOTAL_PADDING) * get(framesPerPixel)
-        console.log(newPos, e.offsetX)
-        if (AudioCore.awp){
-            AudioCore.awp.port.postMessage({snap: newPos})     
-        }  
+        currentFrame.set(newPos)
     })
 })
 

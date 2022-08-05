@@ -534,6 +534,12 @@ const framesPerPixel = applyEasing();
 
 const currentFrame = writable(0);
 
+currentFrame.subscribe(frame => {
+    if (AudioCore.awp){
+        AudioCore.awp.port.postMessage({snap: frame});
+    }
+});
+
 AudioCore.registerCallback(e => {
     if (e.data.tick) currentFrame.set(e.data.tick);
 });
@@ -1149,11 +1155,11 @@ function create_fragment$3(ctx) {
 function instance$2($$self, $$props, $$invalidate) {
 	let { height } = $$props;
 	let _this;
+	let isPlaying = false;
 	const updateStyle = pixelPosition => _this.style.setProperty('--playhead-pos', pixelPosition + 'px');
 
 	const unsub = currentFrame.subscribe(frame => {
 		let pixelPosition = frame / get_store_value(framesPerPixel);
-		console.log(pixelPosition);
 
 		if (_this) {
 			updateStyle(pixelPosition);
@@ -1164,17 +1170,25 @@ function instance$2($$self, $$props, $$invalidate) {
 		unsub();
 	});
 
-	onMount(async () => {
+	onMount(() => {
 		//* PLAYHEAD *//
-		window.addEventListener('keydown', async e => {
-			//In this case - no clips have been added
+		document.addEventListener('keydown', async e => {
 			if (!AudioCore.awp) await AudioCore.create();
-
-			if (AudioCore.audioContext.state === 'suspended') await AudioCore.audioContext.resume();
+			if (AudioCore.audioContext.state == 'suspended') await AudioCore.audioContext.resume();
 			if (e.key != ' ') return;
+			let playState;
 
-			get_store_value(currentFrame);
-		}); //AudioCore.awp.port.postMessage({playState: playState, startPos: startPos});
+			if (!isPlaying) {
+				isPlaying = true;
+				playState = 'play';
+			} else {
+				playState = 'stop';
+				isPlaying = false;
+			}
+
+			let startPos = get_store_value(currentFrame);
+			AudioCore.awp.port.postMessage({ playState, startPos });
+		});
 	});
 
 	function div_binding($$value) {
@@ -1477,11 +1491,7 @@ function instance($$self, $$props, $$invalidate) {
 	onMount(e => {
 		_this.addEventListener('click', e => {
 			let newPos = (e.offsetX - TOTAL_PADDING) * get_store_value(framesPerPixel);
-			console.log(newPos, e.offsetX);
-
-			if (AudioCore.awp) {
-				AudioCore.awp.port.postMessage({ snap: newPos });
-			}
+			currentFrame.set(newPos);
 		});
 	});
 
