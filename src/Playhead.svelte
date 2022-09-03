@@ -2,14 +2,14 @@
 
 import { onMount, onDestroy } from 'svelte';
 import { get } from 'svelte/store'
-import { framesPerPixel, currentFrame} from './stores.js'
+import { framesPerPixel, currentFrame, isPlaying} from './stores.js'
 
 import { AudioCore } from './audio-utils.js'
 
 export let height;
 
 let _this;
-let isPlaying = false;
+//let isPlaying = false;
 let modifierKey = false;
 const updateStyle = (pixelPosition) => _this.style.setProperty('--playhead-pos', pixelPosition + 'px');
 
@@ -19,7 +19,6 @@ const unsub = currentFrame.subscribe(frame => {
         updateStyle(pixelPosition);
     }
 });
-
 
 onDestroy(() => {unsub();})
 
@@ -33,18 +32,18 @@ onMount(() => {
         if (e.key != ' ') return
 
         let playState;
-        if (!isPlaying){
-            isPlaying = true;
+        if (!get(isPlaying)){
+            isPlaying.set(true);
             playState = 'play';
         }
 
         else {
             playState = 'stop';
-            isPlaying = false;
+            isPlaying.set(false);
             if (modifierKey){
-            startPos = 0
-            currentFrame.set(0)
-            updateStyle()
+                startPos = 0
+                currentFrame.set(0)
+                updateStyle()
         }
         }
 

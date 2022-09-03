@@ -50,12 +50,19 @@ let lastfpp = null;
 
 const unsub = framesPerPixel.subscribe(fpp => {
     const zoom = () => {
+
         updateClipWidth(clipTrims, lineData, fpp);
+        
+        let prevPosFrames = pixelsToFrames(start, lastfpp);
+        let newPosPixels = framesToPixels([prevPosFrames], fpp)
+        let delta = newPosPixels - start; //should be negative when we zoom out
+        start = updatePosition(delta, start);
         _maxSvgWidth = Number(window.getComputedStyle(_clip).getPropertyValue('--width').split('px')[0]);
         lastfpp = fpp;
     }
     
-    !lastfpp ? lastfpp = fpp : zoom()
+    //skip the zoom operation when the fpp is initially set on load
+    !lastfpp ? lastfpp = fpp : zoom();
 });
 
 
@@ -89,8 +96,8 @@ const highlightHandler = e => {
     let delta = Math.abs(hlEnd - hlStart)
     if (hlEnd < hlStart){
         _mask.style.setProperty('--position', String(hlStart - delta) + 'px')
-
     }
+
     _mask.style.setProperty('--width', String(delta) + 'px')
 }
 
@@ -158,39 +165,49 @@ const clipTrimsToLineTrims = (clipChange, lineData) => {
 
 /**
  * samples to pixels - 
- * @param samples - array to sum
+ * @param frames - array to sum. This is so that we can easily use with trims
  * @param fpp - current frames per pixel value
  */
-const samplesToPixels = (samples, fpp) => {
-    const totalFrames = samples.reduce((prev, current) => prev + current);
+const framesToPixels = (frames, fpp) => {
+    const totalFrames = frames.reduce((prev, current) => prev + current);
     return Math.round(totalFrames / fpp);
 }
 
-const pixelsToSamples = (pixels, fpp) => {
+const pixelsToFrames = (pixels, fpp) => {
     return Math.round(pixels * fpp);
 }
 
 const setCoreTrims = (clipTrims, fileId, clipId, position, trackId) => {
     //clipTrims[0] -= 12000 //everything is a little off lol 
-    clipTrims = clipTrims.map(ct => ct * 1);
+    //clipTrims = clipTrims.map(ct => ct * 1);
     AudioCore.awp.port.postMessage({trims: {fileId: fileId, clipId: clipId, trackId: trackId, meta: [position * get(framesPerPixel), clipTrims[0], clipTrims[1]]}})
 }
 
 const updateTrims = (pixelChange, side, clipTrims, lineTrims, lineData) => {
 
     if (side === 'left'){
-        clipTrims[0] += pixelsToSamples(pixelChange, get(framesPerPixel));
+        let lNewClipTrim = clipTrims[0] + pixelsToFrames(pixelChange, get(framesPerPixel));
+        if (lNewClipTrim < 0) return;
+        clipTrims[0] = lNewClipTrim;
         start += pixelChange;
         
-        lineTrims[0] += pixelsToLinePoints(pixelChange, get(framesPerPixel), lineData);
+        let lNewLineTrim = lineTrims[0] + pixelsToLinePoints(pixelChange, get(framesPerPixel), lineData);
+        if (lNewLineTrim < 0) return;
+        lineTrims[0] = lNewLineTrim
         _vbShift = String(Number(lineTrims[0]));  //Need to move the viewbox a commesurate amount
+        //start = updatePosition(pixelChange, start); 
     }
     
     //for actual trimming pixel change will be negative
     else if (side === 'right'){
         pixelChange *= -1;
-        clipTrims[1] += pixelsToSamples(pixelChange, get(framesPerPixel));
-        lineTrims[1] += pixelsToLinePoints(pixelChange, get(framesPerPixel), lineData);
+        let rNewClipTrim = clipTrims[1] + pixelsToFrames(pixelChange, get(framesPerPixel));
+        if (rNewClipTrim < 0) return;
+        clipTrims[1] = rNewClipTrim
+        
+        let rNewLineTrim = lineTrims[1] + pixelsToLinePoints(pixelChange, get(framesPerPixel), lineData);
+        if (rNewLineTrim < 0) return;
+        lineTrims[1] = rNewLineTrim;
     }
 
     updateClipWidth(clipTrims, lineData, get(framesPerPixel));
@@ -214,7 +231,7 @@ onMount(async () => {
 
         _vbHeight = String(lineData.height);
         _vbLength = String(lineData.points.length);
-        _maxSvgWidth = samplesToPixels([lineData.sampleLength / lineData.channels], get(framesPerPixel));
+        _maxSvgWidth = framesToPixels([lineData.sampleLength / lineData.channels], get(framesPerPixel));
         
         let lineTrims = clipTrimsToLineTrims(clipTrims, lineData);
         updateTrims(0, 'left', clipTrims, lineTrims, lineData);
@@ -237,8 +254,13 @@ onMount(async () => {
             if(e.key === 'Backspace' && (Math.abs(hlStart - hlEnd) > 0)){
 
                 const rOffset = Number(window.getComputedStyle(_clip).getPropertyValue('--width').split('px')[0]) - hlStart
-                const lClipTrims = [clipTrims[0], clipTrims[1] + pixelsToSamples(rOffset, get(framesPerPixel))]
+                const lClipTrims = [clipTrims[0], clipTrims[1] + pixelsToFrames(rOffset, get(framesPerPixel))]
      
+                const lOffset = hlStart + (hlEnd - hlStart);
+                const rClipTrims = [clipTrims[0] + pixelsToFrames(lOffset, get(framesPerPixel)) , clipTrims[1]]
+
+                parent.removeChild(_clip)
+
                 new Clip({
                     target: parent,
                     props: {
@@ -249,8 +271,7 @@ onMount(async () => {
                     }
                 })
                 
-                const lOffset = hlStart + (hlEnd - hlStart);
-                const rClipTrims = [clipTrims[0] + pixelsToSamples(lOffset, get(framesPerPixel)) , clipTrims[1]]
+                
     
                 new Clip({
                     target: parent,
@@ -264,7 +285,7 @@ onMount(async () => {
 
                 unsub(); //unsubs from the fpp store
                 clearCore(fileId, clipId);
-                parent.removeChild(_clip)
+                
                 
             }
         })
@@ -335,11 +356,11 @@ onMount(async () => {
 </script>
 <div bind:this={_clip} class='clip'>
     <div bind:this={_mask} class='mask' id='-mask'></div>
-    <div class="line">
+    <!-- <div class="line">
         <svg xmlns="http://www.w3.org/2000/svg" width={_maxSvgWidth} height="100%" preserveAspectRatio='none' stroke-width='2' viewBox='{_vbShift} 0 {_vbLength} {_vbHeight}'>
            <polyline stroke='white' points={_points} fill='none'/>
         </svg>
-    </div>
+    </div> -->
 </div> 
 
 <style>
@@ -376,7 +397,7 @@ onMount(async () => {
         grid-row-start: 1;
         grid-column-start: 1;
         background: rgba(209, 213, 255, var(--opacity)); /*up to 0.2 maybe*/
-    
+
     }
 
 

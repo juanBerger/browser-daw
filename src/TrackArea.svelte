@@ -16,7 +16,7 @@ export let leftArea;
 //* Playhead related *//
 let _this;
 let _mouse = false;
-let _zoomStep = 5; // 0 to 30 --> as this gets higher polyline height should somehow get smaller
+let _zoomStep = 15; // 0 to 30 --> as this gets higher polyline height should somehow get smaller
 let playheadHeight = 0;
 
 let SR = 48000
@@ -59,7 +59,7 @@ onMount(async () => {
             if (e.key === 'r') _zoomStep >= 30 ? _zoomStep = _zoomStep : _zoomStep++
             else _zoomStep <= 0 ? _zoomStep = _zoomStep : _zoomStep--
             framesPerPixel.ease(_zoomStep)
-            console.log('[ZOOMING]')
+            //console.log('[ZOOMING]')
         }          
     })
 

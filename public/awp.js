@@ -16,6 +16,9 @@ class AWP extends AudioWorkletProcessor {
 
 			else if (e.data.snap){
 				this.Transport.snap(e.data.snap)
+				if (!this.Transport.isPlaying)
+					this.Transport.snapSearch(this.Files);
+
 			}
 
 			else if (e.data.file){
@@ -53,7 +56,9 @@ class AWP extends AudioWorkletProcessor {
 					meta.push(e.data.trims.clipId) //add clipId to meta
 					meta.push(e.data.trims.fileId) //add fileId to meta
 					meta.push(e.data.trims.trackId) //add trackId to meta
+
 					if (!this.Tracks.tracks[e.data.trims.trackId]){
+						console.log('Adding Ampliutude array')
 						this.Tracks.tracks[e.data.trims.trackId] = {amplitude: this.Tracks.genertateAmplitudeArray()}
 					}
 
@@ -63,8 +68,9 @@ class AWP extends AudioWorkletProcessor {
 					this.Transport.syncMetaObjects(meta, prevMeta)
 					fileObj.metas[clipId] = meta
 					
-					
 				}
+
+				
 			}
 		}
 		
@@ -88,12 +94,12 @@ class AWP extends AudioWorkletProcessor {
             	const channels = 2;
 
 				let points = [];
-				let y = 0;
+				let x = 0;
 
 				for (let i=0; i < audio.length; i += density){ 
 					let scaled = Math.round(scaler(audio[i], typeRanges[dType][0], typeRanges[dType][1], 0, height))
-					points.push(String(y) + ',' + String(scaled))
-					y++        
+					points.push(String(x) + ',' + String(scaled))
+					x++        
 				}
 			
 				const result = {
@@ -135,8 +141,6 @@ class AWP extends AudioWorkletProcessor {
 					//use wav parser util to check data type
 					const audio = new Int16Array(audioBuffer.slice(44, audioBuffer.byteLength)) //int16 only for now
 					const waveform = this._generateWaveForm(audio, 'int16')
-
-					console.log(audio, waveform)
 
 					this.files[fileId] = {
 						audio: audio,
@@ -189,6 +193,33 @@ class AWP extends AudioWorkletProcessor {
 				}				
 			},
 
+			//check if current transport position overlaps any entries in the timeline object - if so,
+			//add to the transport stack
+			snapSearch(Files){
+				for (const entry in this.timeline){
+					for (const [i, m] of this.timeline[entry].entries()){
+						let fileObj = Files.files[m[4]];
+						let channels = fileObj.waveform.channels
+						if (this.frameNumber > m[0] && this.frameNumber < (fileObj.audio.length / channels) - m[2]){
+							
+							//see if it already exists in the transport stack, if not, add it
+							for (const stackMeta of this.stack) {
+								if (m[3] === stackMeta[3]){
+									console.log('Already on the stack')
+									return;
+								}
+							}
+
+							console.log('Adding to stack')
+							this.stack.push(m)
+
+						}
+					
+					}
+
+				}
+			},
+
 			removeMetas(clipId){
 				
 				for (const slot in this.timeline) {
@@ -214,7 +245,7 @@ class AWP extends AudioWorkletProcessor {
 				//if the meta is on the transport stack, update it
 				for (const [i, m] of this.stack.entries()){
 					if (m[3] === meta[3]){
-						console.log('Updating Existing Transport Stack Entry')
+						//console.log('Updating Existing Transport Stack Entry')
 						this.stack[i] = meta
 					}
 				}
@@ -256,8 +287,17 @@ class AWP extends AudioWorkletProcessor {
 					this.timeline[slot] = [meta] //the slot never existed so create it and add the meta
 				}
 				
-			}
+				//if playhead position is currently ahead of start time and it's not already there
+				//add this to the transport stack
+				if (this.frameNumber >= meta[0]){
+					for (const [i, m] of this.stack.entries()){
+						if (m[3] === meta[3]){ return }
+					}
 
+					console.log('Back adding to tranport stack')
+					this.stack.push(meta)
+				}
+			}
 		}
 
 	}
@@ -299,7 +339,7 @@ class AWP extends AudioWorkletProcessor {
 							let channels = fileObj.waveform.channels
 							idx += meta[1]
 
-							if (idx > ((fileObj.audio.length / channels)- meta[2])){
+							if (idx > ((fileObj.audio.length / channels) - meta[2])){
 								console.log('Item removed from transport stack');
 								this.Transport.stack.splice(index, 1);
 								continue;
@@ -310,16 +350,16 @@ class AWP extends AudioWorkletProcessor {
 								idx += ch          
 								let sample = fileObj.audio[idx * channels] / 32768 //scale the value of idx to +/- playback speed
 								
-								// if (sample > 0.9 || sample < -0.9){
-								// 	console.log('stop')
-								// }
-								
 								if (ch === 0){
 									let sq = sample * sample
 									ampliArray[0] += sq
 								}
 								
+								// if (sample > 0.99 || sample < -0.99){
+								// 	console.log(sample)
+								// }
 
+								//this is for summing all tracks, but fails when we move clips around
 								let prevValue = outputDevice[ch][frame]
 								sample += prevValue
 								
@@ -340,7 +380,7 @@ class AWP extends AudioWorkletProcessor {
 				for (const track in this.Tracks.tracks){
 					let amp = this.Tracks.tracks[track].amplitude[0]
 					let rms = Math.sqrt((1/128) * amp);
-					//this.port.postMessage({amplitude: {track: track, amplitude: rms}})
+					this.port.postMessage({amplitude: {track: track, amplitude: rms}})
 				}
 			
 			}
