@@ -63,9 +63,6 @@ function get_current_component() {
 function onMount(fn) {
     get_current_component().$$.on_mount.push(fn);
 }
-function onDestroy(fn) {
-    get_current_component().$$.on_destroy.push(fn);
-}
 
 const dirty_components = [];
 const binding_callbacks = [];
@@ -149,44 +146,11 @@ function update($$) {
     }
 }
 const outroing = new Set();
-let outros;
-function group_outros() {
-    outros = {
-        r: 0,
-        c: [],
-        p: outros // parent group
-    };
-}
-function check_outros() {
-    if (!outros.r) {
-        run_all(outros.c);
-    }
-    outros = outros.p;
-}
 function transition_in(block, local) {
     if (block && block.i) {
         outroing.delete(block);
         block.i(local);
     }
-}
-function transition_out(block, local, detach, callback) {
-    if (block && block.o) {
-        if (outroing.has(block))
-            return;
-        outroing.add(block);
-        outros.c.push(() => {
-            outroing.delete(block);
-            if (callback) {
-                if (detach)
-                    block.d(1);
-                callback();
-            }
-        });
-        block.o(local);
-    }
-}
-function create_component(block) {
-    block && block.c();
 }
 function mount_component(component, target, anchor, customElement) {
     const { fragment, on_mount, on_destroy, after_update } = component.$$;
@@ -314,64 +278,6 @@ class SvelteComponent {
     }
 }
 
-const subscriber_queue = [];
-/**
- * Create a `Writable` store that allows both updating and reading by subscription.
- * @param {*=}value initial value
- * @param {StartStopNotifier=}start start and stop notifications for subscriptions
- */
-function writable(value, start = noop) {
-    let stop;
-    const subscribers = new Set();
-    function set(new_value) {
-        if (safe_not_equal(value, new_value)) {
-            value = new_value;
-            if (stop) { // store is ready
-                const run_queue = !subscriber_queue.length;
-                for (const subscriber of subscribers) {
-                    subscriber[1]();
-                    subscriber_queue.push(subscriber, value);
-                }
-                if (run_queue) {
-                    for (let i = 0; i < subscriber_queue.length; i += 2) {
-                        subscriber_queue[i][0](subscriber_queue[i + 1]);
-                    }
-                    subscriber_queue.length = 0;
-                }
-            }
-        }
-    }
-    function update(fn) {
-        set(fn(value));
-    }
-    function subscribe(run, invalidate = noop) {
-        const subscriber = [run, invalidate];
-        subscribers.add(subscriber);
-        if (subscribers.size === 1) {
-            stop = start(set) || noop;
-        }
-        run(value);
-        return () => {
-            subscribers.delete(subscriber);
-            if (subscribers.size === 0) {
-                stop();
-                stop = null;
-            }
-        };
-    }
-    return { set, update, subscribe };
-}
-
-//(span of new range * real current delta / span of old range) + newRangeMin
-const scaler = (value, oldMin, oldMax, newMin, newMax) => {
-    return (newMax - newMin) * (value - oldMin) / (oldMax - oldMin) + newMin
-};
-
-function uuidv4() {
-    return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => 
-        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
-}
-
 const AudioCore = {
 
     audioContext: null,
@@ -462,36 +368,62 @@ const AudioCore = {
 
 };
 
-
-function convolve(inline){
-    let x = [0, 1.3, 3.3, 4.5, 6.6, 23];
-    let h = [1, 1, 0.6, 2];
-
-    if (inline){
-        let y = Array(x.length + h.length - 1).fill(0);
-        for (let i=0; i < x.length; i++){
-            for (let j=0; j < h.length; j++){
-                y[i + j] += x[i] * h[j];
-            } 
-        }
-
-        return y
-    }
-    
-    else {
-        let outputs = [];
-        for (let i=0; i < x.length; i++){
-            let output = Array(x.length + h.length - 1).fill(0);
-            for (let j=0; j < h.length; j++){
-                output[i + j] += x[i] * h[j];
+const subscriber_queue = [];
+/**
+ * Create a `Writable` store that allows both updating and reading by subscription.
+ * @param {*=}value initial value
+ * @param {StartStopNotifier=}start start and stop notifications for subscriptions
+ */
+function writable(value, start = noop) {
+    let stop;
+    const subscribers = new Set();
+    function set(new_value) {
+        if (safe_not_equal(value, new_value)) {
+            value = new_value;
+            if (stop) { // store is ready
+                const run_queue = !subscriber_queue.length;
+                for (const subscriber of subscribers) {
+                    subscriber[1]();
+                    subscriber_queue.push(subscriber, value);
+                }
+                if (run_queue) {
+                    for (let i = 0; i < subscriber_queue.length; i += 2) {
+                        subscriber_queue[i][0](subscriber_queue[i + 1]);
+                    }
+                    subscriber_queue.length = 0;
+                }
             }
-            
-            outputs.push(output);
         }
-
-        return outputs
     }
+    function update(fn) {
+        set(fn(value));
+    }
+    function subscribe(run, invalidate = noop) {
+        const subscriber = [run, invalidate];
+        subscribers.add(subscriber);
+        if (subscribers.size === 1) {
+            stop = start(set) || noop;
+        }
+        run(value);
+        return () => {
+            subscribers.delete(subscriber);
+            if (subscribers.size === 0) {
+                stop();
+                stop = null;
+            }
+        };
+    }
+    return { set, update, subscribe };
+}
 
+//(span of new range * real current delta / span of old range) + newRangeMin
+const scaler = (value, oldMin, oldMax, newMin, newMax) => {
+    return (newMax - newMin) * (value - oldMin) / (oldMax - oldMin) + newMin
+};
+
+function uuidv4() {
+    return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => 
+        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
 }
 
 const MIN_FPP = 25; 
@@ -524,415 +456,17 @@ function applyEasing (x) {
 const framesPerPixel = applyEasing();
 
 const currentFrame = writable(0);
-const isPlaying = writable(false);
 
 currentFrame.subscribe(frame => {
-    if (AudioCore.awp){
-        AudioCore.awp.port.postMessage({snap: frame});
-    }
 });
 
 AudioCore.registerCallback(e => {
     if (e.data.tick) currentFrame.set(e.data.tick);
 });
 
-/* src/Clip.svelte generated by Svelte v3.48.0 */
-
-function create_fragment$6(ctx) {
-	let div1;
-	let div0;
-
-	return {
-		c() {
-			div1 = element("div");
-			div0 = element("div");
-			attr(div0, "class", "mask svelte-1d17bea");
-			attr(div0, "id", "-mask");
-			attr(div1, "class", "clip svelte-1d17bea");
-		},
-		m(target, anchor) {
-			insert(target, div1, anchor);
-			append(div1, div0);
-			/*div0_binding*/ ctx[7](div0);
-			/*div1_binding*/ ctx[8](div1);
-		},
-		p: noop,
-		i: noop,
-		o: noop,
-		d(detaching) {
-			if (detaching) detach(div1);
-			/*div0_binding*/ ctx[7](null);
-			/*div1_binding*/ ctx[8](null);
-		}
-	};
-}
-
-function instance$5($$self, $$props, $$invalidate) {
-	let { parent } = $$props;
-	let { fileId } = $$props;
-	let { trackId } = $$props;
-	let { start } = $$props;
-	let { clipTrims } = $$props;
-
-	//exposed in markup
-	let clipId;
-
-	let lineData;
-	let _clip;
-	let _mask;
-
-	/* Mouse states */
-	let mouse = null;
-
-	let mouseDown = false;
-
-	/* Actions */
-	let isTrimming = false;
-
-	let isMoving = false;
-	let isHighlighting = false;
-	let firstHighlight = true;
-	let hlStart = 0;
-	let hlEnd = 0;
-	let lastfpp = null;
-
-	const unsub = framesPerPixel.subscribe(fpp => {
-		const zoom = () => {
-			updateClipWidth(clipTrims, lineData, fpp);
-			let prevPosFrames = pixelsToFrames(start, lastfpp);
-			let newPosPixels = framesToPixels([prevPosFrames], fpp);
-			let delta = newPosPixels - start; //should be negative when we zoom out
-			$$invalidate(2, start = updatePosition(delta, start));
-			Number(window.getComputedStyle(_clip).getPropertyValue('--width').split('px')[0]);
-			lastfpp = fpp;
-		};
-
-		//skip the zoom operation when the fpp is initially set on load
-		!lastfpp ? lastfpp = fpp : zoom();
-	});
-
-	const setVerticalPointers = e => {
-		let pointerType;
-
-		if (mouse) {
-			if (e.offsetY > _clip.offsetHeight / 2) {
-				_clip.style.setProperty('--cursor', 'grab');
-				pointerType = 'grab';
-			} else {
-				pointerType = 'text';
-				_clip.style.setProperty('--cursor', 'text');
-			}
-		}
-
-		return pointerType;
-	};
-
-	const highlightHandler = e => {
-		if (firstHighlight) {
-			_mask.style.setProperty('--opacity', 0.3);
-			firstHighlight = false;
-			hlStart = e.offsetX;
-			hlEnd = hlStart;
-			_mask.style.setProperty('--position', String(hlStart) + 'px');
-			return;
-		}
-
-		hlEnd += e.movementX;
-		let delta = Math.abs(hlEnd - hlStart);
-
-		if (hlEnd < hlStart) {
-			_mask.style.setProperty('--position', String(hlStart - delta) + 'px');
-		}
-
-		_mask.style.setProperty('--width', String(delta) + 'px');
-	};
-
-	// const clipWidth = (lineData, clipTrims, spp) => {
-	//     let sampleWidth = lineData.sampleLength - (clipTrims[0] + clipTrims[1]);
-	//     let pixelWidth = (sampleWidth / spp) / lineData.channels
-	//     return Math.round(pixelWidth)
-	// }
-	// const setClipSize = (lineData, spp) => {
-	//     let audioFrames = (lineData.points.length * lineData.density) / lineData.channels
-	//     return Math.round(audioFrames / spp)
-	// }
-	// const zoomClips = fpp => {
-	//     let sampleLength = (lineTrims[1] - lineTrims[0]) * lineData.density
-	//     return Math.round((sampleLength / spp) / lineData.channels)
-	// }
-	/**
- * 
- * @param pixels
- * @param fpp
- * @param lineData
- */
-	const pixelsToLinePoints = (pixels, fpp, lineData) => {
-		let frames = pixels * fpp;
-		return Math.round(frames / (lineData.density / lineData.channels));
-	};
-
-	/**
- * 
- * @param pixelChange : Positive to the right, negative to the left.
- * @param start: &start position in pixels. Updates this global var in place
- */
-	const updatePosition = (pixelChange, start) => {
-		start += pixelChange;
-		_clip.style.setProperty('--position', start + 'px');
-		return start;
-	};
-
-	const updateWaveform = (lineTrims, lineData) => {
-		lineData.points.slice(lineTrims[0], lineData.points.length - lineTrims[1]).join(' ');
-	};
-
-	const updateClipWidth = (clipTrims, lineData, fpp) => {
-		let totalWidth = lineData.sampleLength / lineData.channels - (clipTrims[0] + clipTrims[1]);
-		totalWidth /= fpp;
-		_clip.style.setProperty('--width', String(Math.round(totalWidth)) + 'px');
-	};
-
-	const clipTrimsToLineTrims = (clipChange, lineData) => {
-		return clipChange.map(c => c / (lineData.density / lineData.channels));
-	};
-
-	/**
- * samples to pixels - 
- * @param frames - array to sum. This is so that we can easily use with trims
- * @param fpp - current frames per pixel value
- */
-	const framesToPixels = (frames, fpp) => {
-		const totalFrames = frames.reduce((prev, current) => prev + current);
-		return Math.round(totalFrames / fpp);
-	};
-
-	const pixelsToFrames = (pixels, fpp) => {
-		return Math.round(pixels * fpp);
-	};
-
-	const setCoreTrims = (clipTrims, fileId, clipId, position, trackId) => {
-		//clipTrims[0] -= 12000 //everything is a little off lol 
-		//clipTrims = clipTrims.map(ct => ct * 1);
-		AudioCore.awp.port.postMessage({
-			trims: {
-				fileId,
-				clipId,
-				trackId,
-				meta: [position * get_store_value(framesPerPixel), clipTrims[0], clipTrims[1]]
-			}
-		});
-	};
-
-	const updateTrims = (pixelChange, side, clipTrims, lineTrims, lineData) => {
-		if (side === 'left') {
-			let lNewClipTrim = clipTrims[0] + pixelsToFrames(pixelChange, get_store_value(framesPerPixel));
-			if (lNewClipTrim < 0) return;
-			clipTrims[0] = lNewClipTrim;
-			$$invalidate(2, start += pixelChange);
-			let lNewLineTrim = lineTrims[0] + pixelsToLinePoints(pixelChange, get_store_value(framesPerPixel), lineData);
-			if (lNewLineTrim < 0) return;
-			lineTrims[0] = lNewLineTrim;
-			String(Number(lineTrims[0])); //Need to move the viewbox a commesurate amount
-		} else //for actual trimming pixel change will be negative
-		if (side === 'right') {
-			pixelChange *= -1; //start = updatePosition(pixelChange, start); 
-			let rNewClipTrim = clipTrims[1] + pixelsToFrames(pixelChange, get_store_value(framesPerPixel));
-			if (rNewClipTrim < 0) return;
-			clipTrims[1] = rNewClipTrim;
-			let rNewLineTrim = lineTrims[1] + pixelsToLinePoints(pixelChange, get_store_value(framesPerPixel), lineData);
-			if (rNewLineTrim < 0) return;
-			lineTrims[1] = rNewLineTrim;
-		}
-
-		updateClipWidth(clipTrims, lineData, get_store_value(framesPerPixel));
-		updateWaveform(lineTrims, lineData);
-		$$invalidate(2, start = updatePosition(0, start)); //pixelChange is 0 here since this is the first call
-		setCoreTrims(clipTrims, fileId, clipId, start, trackId);
-	};
-
-	const clearCore = (fileId, clipId) => {
-		AudioCore.awp.port.postMessage({ clear: { fileId, clipId } });
-	};
-
-	onMount(async () => {
-		if (fileId !== null) {
-			clipId = uuidv4();
-			lineData = await AudioCore.getWaveform(fileId); //get waveform from back end
-			String(lineData.height);
-			String(lineData.points.length);
-			framesToPixels([lineData.sampleLength / lineData.channels], get_store_value(framesPerPixel));
-			let lineTrims = clipTrimsToLineTrims(clipTrims, lineData);
-			updateTrims(0, 'left', clipTrims, lineTrims, lineData);
-			updateTrims(0, 'right', clipTrims, lineTrims, lineData);
-
-			//* MOUSE *//
-			window.addEventListener('mousedown', e => {
-				//reset any highlights
-				_mask.style.setProperty('--opacity', 0);
-
-				_mask.style.setProperty('--position', String(hlStart) + 'px');
-				_mask.style.setProperty('--width', '0px');
-				hlStart = 0;
-				hlEnd = 0;
-			});
-
-			window.addEventListener('keydown', e => {
-				if (e.key === 'Backspace' && Math.abs(hlStart - hlEnd) > 0) {
-					const rOffset = Number(window.getComputedStyle(_clip).getPropertyValue('--width').split('px')[0]) - hlStart;
-
-					const lClipTrims = [
-						clipTrims[0],
-						clipTrims[1] + pixelsToFrames(rOffset, get_store_value(framesPerPixel))
-					];
-
-					const lOffset = hlStart + (hlEnd - hlStart);
-
-					const rClipTrims = [
-						clipTrims[0] + pixelsToFrames(lOffset, get_store_value(framesPerPixel)),
-						clipTrims[1]
-					];
-
-					parent.removeChild(_clip);
-
-					new Clip_1({
-							target: parent,
-							props: {
-								start,
-								clipTrims: lClipTrims,
-								fileId,
-								parent
-							}
-						});
-
-					new Clip_1({
-							target: parent,
-							props: {
-								start: start + lOffset,
-								clipTrims: rClipTrims,
-								fileId,
-								parent
-							}
-						});
-
-					unsub(); //unsubs from the fpp store
-					clearCore(fileId, clipId);
-				}
-			});
-
-			//reset flags here since we may be outside of the clip
-			window.addEventListener('mouseup', e => {
-				mouseDown = false;
-				isTrimming = false;
-				isMoving = false;
-				isHighlighting = false; //the highlight may still be visible, but it is no longer changing
-				firstHighlight = true;
-			}); // hlStart = 0;
-			// hlEnd = 0;
-
-			_clip.addEventListener('mouseenter', e => {
-				mouse = true;
-			});
-
-			_clip.addEventListener('mouseleave', e => {
-				mouse = false;
-			});
-
-			_clip.addEventListener('mousedown', e => mouseDown = true);
-
-			_clip.addEventListener('mouseup', e => {
-				//isTrimming isMoving etc are reset on the window version of this event listener
-				if (mouse) setVerticalPointers(e);
-			});
-
-			_clip.addEventListener('mousemove', e => {
-				if (isHighlighting) {
-					highlightHandler(e);
-				} else if (isMoving) {
-					$$invalidate(2, start = updatePosition(e.movementX, start));
-					setCoreTrims(clipTrims, fileId, clipId, start, trackId);
-				} else if (isTrimming) {
-					_clip.style.setProperty('--cursor', 'ew-resize');
-					e.offsetX < _clip.offsetWidth * 0.05 && updateTrims(e.movementX, 'left', clipTrims, lineTrims, lineData);
-					e.offsetX > _clip.offsetWidth * 0.95 && updateTrims(e.movementX, 'right', clipTrims, lineTrims, lineData);
-				} else if (e.offsetX < _clip.offsetWidth * 0.05 || e.offsetX > _clip.offsetWidth * 0.95) {
-					if (e.srcElement.id != '-mask') {
-						//make sure we are referencing the clip
-						_clip.style.setProperty('--cursor', 'ew-resize');
-
-						if (mouseDown) isTrimming = true;
-					}
-				} else {
-					let type = setVerticalPointers(e);
-
-					if (mouseDown) {
-						if (type === 'grab') isMoving = true; else if (type === 'text') isHighlighting = true;
-					}
-				}
-			});
-		} else console.error('No Audio Associated With This Clip');
-	});
-
-	function div0_binding($$value) {
-		binding_callbacks[$$value ? 'unshift' : 'push'](() => {
-			_mask = $$value;
-			$$invalidate(1, _mask);
-		});
-	}
-
-	function div1_binding($$value) {
-		binding_callbacks[$$value ? 'unshift' : 'push'](() => {
-			_clip = $$value;
-			$$invalidate(0, _clip);
-		});
-	}
-
-	$$self.$$set = $$props => {
-		if ('parent' in $$props) $$invalidate(3, parent = $$props.parent);
-		if ('fileId' in $$props) $$invalidate(4, fileId = $$props.fileId);
-		if ('trackId' in $$props) $$invalidate(5, trackId = $$props.trackId);
-		if ('start' in $$props) $$invalidate(2, start = $$props.start);
-		if ('clipTrims' in $$props) $$invalidate(6, clipTrims = $$props.clipTrims);
-	};
-
-	return [
-		_clip,
-		_mask,
-		start,
-		parent,
-		fileId,
-		trackId,
-		clipTrims,
-		div0_binding,
-		div1_binding
-	];
-}
-
-class Clip_1 extends SvelteComponent {
-	constructor(options) {
-		super();
-
-		init(
-			this,
-			options,
-			instance$5,
-			create_fragment$6,
-			safe_not_equal,
-			{
-				parent: 3,
-				fileId: 4,
-				trackId: 5,
-				start: 2,
-				clipTrims: 6
-			},
-			null,
-			[-1, -1]
-		);
-	}
-}
-
 /* src/Track.svelte generated by Svelte v3.48.0 */
 
-function create_fragment$5(ctx) {
+function create_fragment$2(ctx) {
 	let div;
 
 	return {
@@ -954,7 +488,7 @@ function create_fragment$5(ctx) {
 	};
 }
 
-function instance$4($$self, $$props, $$invalidate) {
+function instance$2($$self, $$props, $$invalidate) {
 	let { parent } = $$props;
 	let { fileId } = $$props;
 	let { trackId } = $$props;
@@ -964,19 +498,12 @@ function instance$4($$self, $$props, $$invalidate) {
 		if (_this) {
 			_this.addEventListener('mouseenter', e => true);
 			_this.addEventListener('mouseleave', e => false);
-
-			new Clip_1({
-					target: _this,
-					props: {
-						start: 10,
-						clipTrims: [0, 0], //this means full width; //144000
-						fileId,
-						trackId,
-						parent: _this
-					}
-				});
-		}
-	});
+		} // const clip = new Clip({
+		//     target: _this,
+	}); //     props: {
+	//         start: 10,
+	//         clipTrims: [0, 0], //this means full width; //144000
+	//         fileId: fileId,
 
 	function div_binding($$value) {
 		binding_callbacks[$$value ? 'unshift' : 'push'](() => {
@@ -997,374 +524,99 @@ function instance$4($$self, $$props, $$invalidate) {
 class Track extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$4, create_fragment$5, safe_not_equal, { parent: 1, fileId: 2, trackId: 3 });
-	}
-}
-
-/* src/Meter.svelte generated by Svelte v3.48.0 */
-
-function create_fragment$4(ctx) {
-	let div3;
-	let div2;
-	let div1;
-	let div0;
-
-	return {
-		c() {
-			div3 = element("div");
-			div2 = element("div");
-			div1 = element("div");
-			div0 = element("div");
-			attr(div0, "id", "meterMask");
-			attr(div0, "class", "svelte-a5zkyk");
-			attr(div1, "id", "meterColors");
-			attr(div1, "class", "svelte-a5zkyk");
-			attr(div2, "id", "meterMat");
-			attr(div2, "class", "svelte-a5zkyk");
-			attr(div3, "class", "trackRow meter svelte-a5zkyk");
-		},
-		m(target, anchor) {
-			insert(target, div3, anchor);
-			append(div3, div2);
-			append(div2, div1);
-			append(div1, div0);
-			/*div0_binding*/ ctx[3](div0);
-		},
-		p: noop,
-		i: noop,
-		o: noop,
-		d(detaching) {
-			if (detaching) detach(div3);
-			/*div0_binding*/ ctx[3](null);
-		}
-	};
-}
-
-function instance$3($$self, $$props, $$invalidate) {
-	let { fileId } = $$props;
-	let { trackId } = $$props;
-	let _mask;
-	let prevMaskHeight = '100%';
-	let newMaskHeight = null;
-
-	const handleMeterMessage = e => {
-		if (e.data.amplitude && e.data.amplitude.track === trackId) {
-			newMaskHeight = String(100 - e.data.amplitude.amplitude * 100) + '%';
-
-			//console.log(newMaskHeight)
-			_mask.animate([{ height: prevMaskHeight }, { height: newMaskHeight }], 3);
-
-			prevMaskHeight = newMaskHeight;
-		}
-	};
-
-	onMount(() => {
-		newMaskHeight = '50%';
-		_mask.animate([{ height: prevMaskHeight }, { height: newMaskHeight }], 1);
-		prevMaskHeight = newMaskHeight;
-		AudioCore.registerCallback(handleMeterMessage);
-	});
-
-	function div0_binding($$value) {
-		binding_callbacks[$$value ? 'unshift' : 'push'](() => {
-			_mask = $$value;
-			$$invalidate(0, _mask);
-		});
-	}
-
-	$$self.$$set = $$props => {
-		if ('fileId' in $$props) $$invalidate(1, fileId = $$props.fileId);
-		if ('trackId' in $$props) $$invalidate(2, trackId = $$props.trackId);
-	};
-
-	return [_mask, fileId, trackId, div0_binding];
-}
-
-class Meter extends SvelteComponent {
-	constructor(options) {
-		super();
-		init(this, options, instance$3, create_fragment$4, safe_not_equal, { fileId: 1, trackId: 2 });
-	}
-}
-
-/* src/Playhead.svelte generated by Svelte v3.48.0 */
-
-function create_fragment$3(ctx) {
-	let div;
-
-	return {
-		c() {
-			div = element("div");
-			attr(div, "id", "playhead");
-			attr(div, "class", "svelte-1h1o7jn");
-		},
-		m(target, anchor) {
-			insert(target, div, anchor);
-			/*div_binding*/ ctx[2](div);
-		},
-		p: noop,
-		i: noop,
-		o: noop,
-		d(detaching) {
-			if (detaching) detach(div);
-			/*div_binding*/ ctx[2](null);
-		}
-	};
-}
-
-function instance$2($$self, $$props, $$invalidate) {
-	let { height } = $$props;
-	let _this;
-	const updateStyle = pixelPosition => _this.style.setProperty('--playhead-pos', pixelPosition + 'px');
-
-	const unsub = currentFrame.subscribe(frame => {
-		let pixelPosition = frame / get_store_value(framesPerPixel);
-
-		if (_this) {
-			updateStyle(pixelPosition);
-		}
-	});
-
-	onDestroy(() => {
-		unsub();
-	});
-
-	onMount(() => {
-		//* PLAYHEAD *//
-		document.addEventListener('keydown', async e => {
-			if (!AudioCore.awp) await AudioCore.create();
-			if (AudioCore.audioContext.state == 'suspended') await AudioCore.audioContext.resume();
-			if (e.key != ' ') return;
-			let playState;
-
-			if (!get_store_value(isPlaying)) {
-				isPlaying.set(true);
-				playState = 'play';
-			} else {
-				playState = 'stop';
-				isPlaying.set(false);
-			}
-
-			let startPos = get_store_value(currentFrame);
-			AudioCore.awp.port.postMessage({ playState, startPos });
-		});
-	});
-
-	function div_binding($$value) {
-		binding_callbacks[$$value ? 'unshift' : 'push'](() => {
-			_this = $$value;
-			$$invalidate(0, _this);
-		});
-	}
-
-	$$self.$$set = $$props => {
-		if ('height' in $$props) $$invalidate(1, height = $$props.height);
-	};
-
-	$$self.$$.update = () => {
-		if ($$self.$$.dirty & /*_this, height*/ 3) {
-			{
-				if (_this) {
-					_this.style.setProperty('--playhead-height', height + 'px');
-				}
-			}
-		}
-	};
-
-	return [_this, height, div_binding];
-}
-
-class Playhead extends SvelteComponent {
-	constructor(options) {
-		super();
-		init(this, options, instance$2, create_fragment$3, safe_not_equal, { height: 1 });
+		init(this, options, instance$2, create_fragment$2, safe_not_equal, { parent: 1, fileId: 2, trackId: 3 });
 	}
 }
 
 /* src/TrackArea.svelte generated by Svelte v3.48.0 */
 
-function create_if_block(ctx) {
-	let playhead;
-	let current;
-
-	playhead = new Playhead({
-			props: { height: /*playheadHeight*/ ctx[1] }
-		});
-
-	return {
-		c() {
-			create_component(playhead.$$.fragment);
-		},
-		m(target, anchor) {
-			mount_component(playhead, target, anchor);
-			current = true;
-		},
-		p(ctx, dirty) {
-			const playhead_changes = {};
-			if (dirty & /*playheadHeight*/ 2) playhead_changes.height = /*playheadHeight*/ ctx[1];
-			playhead.$set(playhead_changes);
-		},
-		i(local) {
-			if (current) return;
-			transition_in(playhead.$$.fragment, local);
-			current = true;
-		},
-		o(local) {
-			transition_out(playhead.$$.fragment, local);
-			current = false;
-		},
-		d(detaching) {
-			destroy_component(playhead, detaching);
-		}
-	};
-}
-
-function create_fragment$2(ctx) {
+function create_fragment$1(ctx) {
 	let div;
-	let current;
-	let if_block = /*_this*/ ctx[0] && create_if_block(ctx);
+	let canvas;
 
 	return {
 		c() {
 			div = element("div");
-			if (if_block) if_block.c();
+			canvas = element("canvas");
+			attr(canvas, "id", "canvas");
+			attr(canvas, "class", "svelte-x95750");
 			attr(div, "id", "trackArea");
-			attr(div, "class", "svelte-1pe5qzx");
+			attr(div, "class", "svelte-x95750");
 		},
 		m(target, anchor) {
 			insert(target, div, anchor);
-			if (if_block) if_block.m(div, null);
+			append(div, canvas);
+			/*canvas_binding*/ ctx[2](canvas);
 			/*div_binding*/ ctx[3](div);
-			current = true;
 		},
-		p(ctx, [dirty]) {
-			if (/*_this*/ ctx[0]) {
-				if (if_block) {
-					if_block.p(ctx, dirty);
-
-					if (dirty & /*_this*/ 1) {
-						transition_in(if_block, 1);
-					}
-				} else {
-					if_block = create_if_block(ctx);
-					if_block.c();
-					transition_in(if_block, 1);
-					if_block.m(div, null);
-				}
-			} else if (if_block) {
-				group_outros();
-
-				transition_out(if_block, 1, 1, () => {
-					if_block = null;
-				});
-
-				check_outros();
-			}
-		},
-		i(local) {
-			if (current) return;
-			transition_in(if_block);
-			current = true;
-		},
-		o(local) {
-			transition_out(if_block);
-			current = false;
-		},
+		p: noop,
+		i: noop,
+		o: noop,
 		d(detaching) {
 			if (detaching) detach(div);
-			if (if_block) if_block.d();
+			/*canvas_binding*/ ctx[2](null);
 			/*div_binding*/ ctx[3](null);
 		}
 	};
 }
 
+let _zoomStep = 15; // 0 to 30 --> as this gets higher polyline height should somehow get smaller
 let SR = 48000;
 let NUM_HOURS = 1;
 
 function instance$1($$self, $$props, $$invalidate) {
-	let { leftArea } = $$props;
-
-	//* Playhead related *//
 	let _this;
-	let _zoomStep = 15; // 0 to 30 --> as this gets higher polyline height should somehow get smaller
-	let playheadHeight = 0;
+	let _canvas;
+	let scene;
+	let camera;
+	let renderer;
 
-	onMount(async () => {
-		//** SET TO MAX WIDTH*/
+	function animate() {
+		requestAnimationFrame(animate);
+		renderer.render(scene, camera);
+	}
+
+	onMount(() => {
 		let totalSamples = SR * 60 * 60 * NUM_HOURS;
-
 		AudioCore.totalSamples = totalSamples;
 		framesPerPixel.ease(_zoomStep);
-		let pixelWidth = String(Math.round(totalSamples / get_store_value(framesPerPixel)));
-		_this.style.setProperty('--trackArea-width', pixelWidth + 'px');
+		String(Math.round(totalSamples / get_store_value(framesPerPixel)));
+		const testWidth = String(window.innerWidth);
+		_this.style.setProperty('--trackArea-width', testWidth + 'px');
+		let startWidth = Number(window.getComputedStyle(_this).width.split('px')[0]);
+		let startHeight = Number(window.getComputedStyle(_this).height.split('px')[0]);
+		console.log(startWidth, startHeight);
+		scene = new THREE.Scene();
+		camera = new THREE.OrthographicCamera(startWidth / -2, startHeight / 2, startWidth / 2, startHeight / -2, 0.1, 1000); //left, right
+		camera.position.z = 100;
+		const geometry = new THREE.BoxBufferGeometry(100, 100, 100);
+		const material = new THREE.MeshNormalMaterial();
+		const mesh = new THREE.Mesh(geometry, material);
+		scene.add(mesh);
 
-		/** LISTEN TO THIS RESIZE */
-		const resizeObserver = new ResizeObserver(entries => {
-				for (let entry of entries) {
-					$$invalidate(1, playheadHeight = entry.contentRect.height);
-				}
+		renderer = new THREE.WebGLRenderer({
+				canvas: _canvas,
+				alpha: true,
+				antialias: true
 			});
 
-		resizeObserver.observe(_this);
+		renderer.setSize(startWidth, startHeight);
+		_this.appendChild(renderer.domElement);
+		animate();
+		let trackId = uuidv4();
 
-		/** ZOOMING */
-		_this.addEventListener('mouseenter', e => true);
-
-		_this.addEventListener('mouseleave', e => false);
-
-		document.addEventListener('keydown', e => {
-			if (e.key === 'r' || e.key === 't') {
-				if (e.key === 'r') _zoomStep >= 30 ? _zoomStep = _zoomStep : _zoomStep++; else _zoomStep <= 0 ? _zoomStep = _zoomStep : _zoomStep--;
-				framesPerPixel.ease(_zoomStep);
-			} //console.log('[ZOOMING]')
-		});
-
-		//* DRAG AND DROP *//   
-		_this.addEventListener('dragover', e => {
-			e.preventDefault();
-		});
-
-		_this.addEventListener('drop', async e => {
-			e.preventDefault();
-			let handles = Array.from(e.dataTransfer.items).filter(handle => handle.type.includes('audio')).map(handle => handle.getAsFileSystemHandle());
-
-			for await (const handle of handles) {
-				const file = await handle.getFile();
-				const audioBuffer = await file.arrayBuffer();
-
-				if (audioBuffer.byteLength > 0) {
-					if (!AudioCore.awp) await AudioCore.create(); else if (AudioCore.audioContext.state === 'suspended') {
-						await AudioCore.audioContext.resume();
-						console.log(AudioCore.audioContext.state);
-					}
-
-					console.log(handle);
-					let id = await AudioCore.addFile(audioBuffer, file.name.split('.wav')[0]);
-					console.log(id);
-
-					if (id !== null) {
-						//if (hovering over existing track){
-						//add to that track
-						//}
-						//else:
-						let trackId = uuidv4();
-
-						new Track({
-								target: _this,
-								props: { fileId: id, trackId, parent: _this }
-							});
-
-						let leftArea = document.getElementsByClassName('leftArea')[0];
-
-						new Meter({
-								target: leftArea,
-								props: { fileId: id, trackId }
-							});
-					}
-				}
-			}
-		});
+		new Track({
+				target: _this,
+				props: { fileId: '123', trackId, parent: _this }
+			});
 	});
+
+	function canvas_binding($$value) {
+		binding_callbacks[$$value ? 'unshift' : 'push'](() => {
+			_canvas = $$value;
+			$$invalidate(1, _canvas);
+		});
+	}
 
 	function div_binding($$value) {
 		binding_callbacks[$$value ? 'unshift' : 'push'](() => {
@@ -1373,46 +625,13 @@ function instance$1($$self, $$props, $$invalidate) {
 		});
 	}
 
-	$$self.$$set = $$props => {
-		if ('leftArea' in $$props) $$invalidate(2, leftArea = $$props.leftArea);
-	};
-
-	return [_this, playheadHeight, leftArea, div_binding];
+	return [_this, _canvas, canvas_binding, div_binding];
 }
 
 class TrackArea extends SvelteComponent {
 	constructor(options) {
 		super();
-		init(this, options, instance$1, create_fragment$2, safe_not_equal, { leftArea: 2 });
-	}
-}
-
-/* src/LeftArea.svelte generated by Svelte v3.48.0 */
-
-function create_fragment$1(ctx) {
-	let div;
-
-	return {
-		c() {
-			div = element("div");
-			attr(div, "class", "leftArea svelte-1241pls");
-		},
-		m(target, anchor) {
-			insert(target, div, anchor);
-		},
-		p: noop,
-		i: noop,
-		o: noop,
-		d(detaching) {
-			if (detaching) detach(div);
-		}
-	};
-}
-
-class LeftArea extends SvelteComponent {
-	constructor(options) {
-		super();
-		init(this, options, null, create_fragment$1, safe_not_equal, {});
+		init(this, options, instance$1, create_fragment$1, safe_not_equal, {});
 	}
 }
 
@@ -1471,15 +690,13 @@ class Header extends SvelteComponent {
 }
 
 window.onload = e => {
-
-    console.log(convolve(false));
     const app = document.getElementById('app');
-    new LeftArea({target: app});
-    new TrackArea({ target: app});
     new Header({target: app});
+
+    // const leftArea = new LeftArea({target: app})
+    new TrackArea({ target: app});
+    
 };
-
-
 
 
 
@@ -1493,111 +710,4 @@ window.onload = e => {
 //     const buffer = await file.arrayBuffer()
 //     return buffer
 // }
-
-
-// -- OLD -- OLD -- //
-
-
-// window.onclick = async e => {
-    
-//     //ha ha 
-//     if (tracks.length > 0)
-//         return
-    
-//     const track = document.createElement('div')
-//     track.id = 'track_' + String(tracks.length)
-//     track.className = 'track'
-//     const audioBuffer = await readFile()
-//     let audioMeta = wavParser(audioBuffer.slice(0, 44))
-
-//     //track can be already existing
-//     const clip = new Clip({target: track, 
-//         props: {
-//             audioBuffer: audioBuffer,
-//             audioMeta: audioMeta,
-//             zoomLevel: 0
-//         }
-//     })
-
-//     const trackArea = document.getElementById('trackArea')
-//     trackArea.appendChild(track)
-//     tracks.push(track)
-// }
-
-     
-// point.setAttribute('cy', String(lastY))
-// point.setAttribute('cx', String(scaled))
-// point.setAttribute('r', '5')
-// point.setAttribute('stroke', 'black')
-// point.setAttribute('fill', 'black')
-// point.setAttribute('stroke-width', '2')
-
-
-// window.onload = async e => {
-
-//     let fileLoader = document.getElementById('fileLoader')
-//     fileLoader.onclick = async e => {
-//         let buffer = await readFile()
-//         let audio = new Float32Array(buffer)
-//         let waveformPoints = audio.subarray(0, 48000)
-//         console.log(waveformPoints.length)
-
-
-//         //Start Audio
-//         // let audioContext = new AudioContext({latencyHint: 0, sampleRate: 48000});
-//         // await audioContext.audioWorklet.addModule('awp.js')
-//         // let awp = new AudioWorkletNode(audioContext, 'awp', {numberOfInputs: [1], numberOfOutputs: [1], outputChannelCount: [2]});
-//         // awp.connect(audioContext.destination)
-//     }
-// }
-
-
-
-
-
-
-/**
- * 
- * @param {*} uiState --> per track clip postion, offset, backing file 
- * 
- * {trackId: [  {in: x, out: x, inTrim: x, outTrim: x, fileId: x},
- *              {in: x, out: x, inTrim: x, outTrim: x, fileId: x},
- * }
- * 
- */
-
- //construct Files Object
-/**
- * OLD
- * { fileIdA:
- *          [   
- *              ArrayBuffer -->, becomes detached when passing to awp
- *              {trackId1: [ SAB, {in: x, out: x, inTrim: x, outTrim: x}, {in: x, out: x, inTrim: x, outTrim: x}, ],
- *              {trackId2: [ SAB, {in: x, out: x, inTrim: x, outTrim: x}, {in: x, out: x, inTrim: x, outTrim: x}, ]
- *          ]
- *           
- */
-
-
-
-/**
- * MemoryObject
- * {fileUUIDv5: [ArrayBuffer, anythingElse?], }
- * 
- * 
- * Updated on UI change, on init
- * ClipsObject -- these should be sorted into timeline order? 
- * [{in: sampleNumber, out: sampleNumber, trims: [in, out], fileId: uuidv5},        ]
- * 
- *              x x x x x
- * 
- *                  5% or 60%
- *              
- * 
- *             --> pixel width (number of them), is proportional to actual length in samples relative to number of samples in the viewport
- * 
- *             480000 samples --> 1/60th of a 1 minute span
- *  
- *             To set a baseline for the viewport span. Just pick a max length (1 hour for example). Set grid lines accordingly, then all zoom steps are proportional to that
- */
 //# sourceMappingURL=app.js.map

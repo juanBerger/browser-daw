@@ -1,121 +1,71 @@
 <script>
 
-import { onMount } from 'svelte';
-import { get } from 'svelte/store'
+import { onMount } from "svelte";
+import { AudioCore } from './audio-utils.js'
 import { framesPerPixel } from './stores.js'
+import { get } from 'svelte/store'
 import { uuidv4 } from './utils.js';
 
 import Track from './Track.svelte'
-import Meter from './Meter.svelte'
-import Playhead from './Playhead.svelte'
 
-import { AudioCore } from './audio-utils.js'
-
-export let leftArea;
-
-//* Playhead related *//
 let _this;
-let _mouse = false;
+let _canvas;
 let _zoomStep = 15; // 0 to 30 --> as this gets higher polyline height should somehow get smaller
-let playheadHeight = 0;
+let scene;
+let camera;
+let renderer;
 
 let SR = 48000
 let NUM_HOURS = 1
 
-
-const readFile = async () => {
-    
-    const [handle] = await window.showOpenFilePicker({
-        types: [{ description: '16 bit .wav file', accept: {'application/octet-stream': ['.wav']}}],
-        startIn: 'desktop'}) 
-    const file = await handle.getFile()
-    const buffer = await file.arrayBuffer()
-    return [buffer, file]
+function animate(){
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
 }
 
 
-onMount(async () => {
 
-    //** SET TO MAX WIDTH*/
-    let totalSamples = SR * 60 * 60 * NUM_HOURS
-    AudioCore.totalSamples = totalSamples
-    framesPerPixel.ease(_zoomStep)
-    let pixelWidth = String(Math.round(totalSamples / get(framesPerPixel)))
-    _this.style.setProperty('--trackArea-width', pixelWidth + 'px')
-    
+onMount(()=> {
 
-    /** LISTEN TO THIS RESIZE */
-    const resizeObserver = new ResizeObserver(entries => {
-        for (let entry of entries){ playheadHeight = entry.contentRect.height }
-    })
-    resizeObserver.observe(_this)
-    
+    let totalSamples = SR * 60 * 60 * NUM_HOURS;
+    AudioCore.totalSamples = totalSamples;
+    framesPerPixel.ease(_zoomStep);
+    let pixelWidth = String(Math.round(totalSamples / get(framesPerPixel)));
 
-    /** ZOOMING */
-    _this.addEventListener('mouseenter', e => _mouse = true)
-    _this.addEventListener('mouseleave', e => _mouse = false)
-    document.addEventListener('keydown', e => {
-        if (e.key === 'r' || e.key === 't'){
-            if (e.key === 'r') _zoomStep >= 30 ? _zoomStep = _zoomStep : _zoomStep++
-            else _zoomStep <= 0 ? _zoomStep = _zoomStep : _zoomStep--
-            framesPerPixel.ease(_zoomStep)
-            //console.log('[ZOOMING]')
-        }          
-    })
+    const testWidth = String(window.innerWidth);
+    _this.style.setProperty('--trackArea-width', testWidth + 'px');
 
+    let startWidth = Number(window.getComputedStyle(_this).width.split('px')[0]);
+    let startHeight = Number(window.getComputedStyle(_this).height.split('px')[0]);
 
-    //* DRAG AND DROP *//   
-    _this.addEventListener('dragover', e => { e.preventDefault() })
-    _this.addEventListener('drop', async e => {
+    console.log(startWidth, startHeight)
 
-        e.preventDefault()
+    scene = new THREE.Scene();
+    camera = new THREE.OrthographicCamera(startWidth / -2, startHeight / 2, startWidth / 2, startHeight / -2, 0.1, 1000 ); //left, right
+    camera.position.z = 100;
 
-        let handles = Array.from(e.dataTransfer.items)
-        .filter(handle => handle.type.includes('audio'))
-        .map(handle => handle.getAsFileSystemHandle())
+    const geometry = new THREE.BoxBufferGeometry(100,100,100);
+    const material = new THREE.MeshNormalMaterial();
 
-        for await (const handle of handles){
-            const file = await handle.getFile()
-            const audioBuffer = await file.arrayBuffer()
-            if (audioBuffer.byteLength > 0){
+    const mesh = new THREE.Mesh( geometry, material );
+    scene.add( mesh );
 
-                if (!AudioCore.awp) await AudioCore.create()
-                
-                else if (AudioCore.audioContext.state === 'suspended'){
-                    await AudioCore.audioContext.resume()
-                    console.log(AudioCore.audioContext.state)
-                }
-                
-                console.log(handle)
-                let id = await AudioCore.addFile(audioBuffer, file.name.split('.wav')[0])
-                console.log(id)
-                if (id !== null) {
-                    //if (hovering over existing track){
-                        //add to that track
-                    //}
-                    //else:
-                    let trackId = uuidv4();
-                    const track = new Track({
-                        target: _this,
-                        props: {
-                            fileId: id,
-                            trackId: trackId,
-                            parent: _this
-                        }
-                    })
+    renderer = new THREE.WebGLRenderer( { 
+        canvas: _canvas,
+        alpha: true,
+        antialias: true } );
+    renderer.setSize( startWidth, startHeight );
+    _this.appendChild( renderer.domElement );
 
-                    let leftArea = document.getElementsByClassName('leftArea')[0];
-                    const meter = new Meter({
-                        target: leftArea,
-                        props: {
-                            fileId: id,
-                            trackId: trackId,
-                        }
-                    })
-                    
-                }
-                
-            }
+    animate();
+
+    let trackId = uuidv4();
+    const track = new Track({
+        target: _this,
+        props: {
+            fileId: '123',
+            trackId: trackId,
+            parent: _this
         }
     })
 
@@ -124,13 +74,28 @@ onMount(async () => {
 
 </script>
 
+
 <div bind:this={_this} id='trackArea'>
-    {#if _this}
+    <canvas bind:this={_canvas} id="canvas"/>
+    <!-- {#if _this}
         <Playhead height={playheadHeight}/>
-    {/if}
+    {/if} -->
 </div>
 
 <style>
+
+
+#test {
+    width: 100%;
+    height: 100%;
+    visibility: hidden;
+}
+
+#canvas {
+
+    position: absolute;
+
+}
 
 #trackArea {
 
@@ -145,44 +110,4 @@ onMount(async () => {
 }
 
 </style>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

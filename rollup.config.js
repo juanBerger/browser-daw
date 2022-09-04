@@ -29,7 +29,7 @@ export default {
       
         copy({
           targets: [
-            {src: ['src/awp.js', 'src/audio-utils.js', 'src/utils.js'], dest: 'public'},
+            {src: ['src/awp.js', 'src/audio-utils.js', 'src/utils.js', 'src/three.js'], dest: 'public'},
           ]
         }),
         

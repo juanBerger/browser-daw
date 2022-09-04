@@ -18,18 +18,18 @@ onMount(() => {
         _this.addEventListener('mouseenter', (e) => _mouse = true)
         _this.addEventListener('mouseleave', (e) => _mouse = false)
         
-        const clip = new Clip({
-            target: _this,
-            props: {
-                start: 10,
-                clipTrims: [0, 0], //this means full width; //144000
-                fileId: fileId,
-                trackId: trackId,
-                parent: _this,
-            }
-        })
+        // const clip = new Clip({
+        //     target: _this,
+        //     props: {
+        //         start: 10,
+        //         clipTrims: [0, 0], //this means full width; //144000
+        //         fileId: fileId,
+        //         trackId: trackId,
+        //         parent: _this,
+        //     }
+        // })
 
-        _clips.push(clip)
+        //_clips.push(clip)
     }
 })
 
