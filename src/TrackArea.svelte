@@ -1,112 +1,84 @@
 <script>
 
 import { onMount } from "svelte";
-import { AudioCore } from './audio-utils.js'
-import { framesPerPixel } from './stores.js'
-import { get } from 'svelte/store'
+import { AudioCore } from './audio-utils.js';
+import { Drawing } from './Drawing.js';
 import { uuidv4 } from './utils.js';
 
 import Track from './Track.svelte'
 
-let _this;
-let _canvas;
+let trackArea;
+let _clipArea;
+
 let _zoomStep = 15; // 0 to 30 --> as this gets higher polyline height should somehow get smaller
-let scene;
-let camera;
-let renderer;
 
-let SR = 48000
-let NUM_HOURS = 1
-
-function animate(){
-    requestAnimationFrame(animate);
-    renderer.render(scene, camera);
-}
+let SR = 48000;
+let MAX_HOURS = 1;
 
 
+onMount(()=> {  
 
-onMount(()=> {
-
-    let totalSamples = SR * 60 * 60 * NUM_HOURS;
+    let totalSamples = SR * 60 * 60 * MAX_HOURS;
     AudioCore.totalSamples = totalSamples;
-    framesPerPixel.ease(_zoomStep);
-    let pixelWidth = String(Math.round(totalSamples / get(framesPerPixel)));
 
-    const testWidth = String(window.innerWidth);
-    _this.style.setProperty('--trackArea-width', testWidth + 'px');
+    Drawing.init(document.getElementById('sceneCanvas'), document.getElementById('app'))
 
-    let startWidth = Number(window.getComputedStyle(_this).width.split('px')[0]);
-    let startHeight = Number(window.getComputedStyle(_this).height.split('px')[0]);
-
-    console.log(startWidth, startHeight)
-
-    scene = new THREE.Scene();
-    camera = new THREE.OrthographicCamera(startWidth / -2, startHeight / 2, startWidth / 2, startHeight / -2, 0.1, 1000 ); //left, right
-    camera.position.z = 100;
-
-    const geometry = new THREE.BoxBufferGeometry(100,100,100);
-    const material = new THREE.MeshNormalMaterial();
-
-    const mesh = new THREE.Mesh( geometry, material );
-    scene.add( mesh );
-
-    renderer = new THREE.WebGLRenderer( { 
-        canvas: _canvas,
-        alpha: true,
-        antialias: true } );
-    renderer.setSize( startWidth, startHeight );
-    _this.appendChild( renderer.domElement );
-
-    animate();
-
+    /** FOR TEST **/
     let trackId = uuidv4();
     const track = new Track({
-        target: _this,
+        target: trackArea,
         props: {
             fileId: '123',
             trackId: trackId,
-            parent: _this
+            parent: trackArea,
         }
     })
 
+    // let trackId_1 = uuidv4();
+    // const track_1 = new Track({
+    //     target: trackArea,
+    //     props: {
+    //         fileId: '124',
+    //         trackId: trackId_1,
+    //         parent: trackArea,
+    //     }
+    // })
 })
 
 
 </script>
-
-
-<div bind:this={_this} id='trackArea'>
-    <canvas bind:this={_canvas} id="canvas"/>
-    <!-- {#if _this}
-        <Playhead height={playheadHeight}/>
-    {/if} -->
-</div>
+    <div bind:this={trackArea} id='trackArea'>
+        <!-- <canvas bind:this={sceneCanvas} id="sceneCanvas"/> -->
+    </div>
 
 <style>
 
-
-#test {
+/* #test {  
     width: 100%;
     height: 100%;
     visibility: hidden;
 }
 
-#canvas {
 
-    position: absolute;
 
-}
+#clipArea {
+    grid-row-start: 3;
+    grid-column-start: 3;
+    margin: 0.8em;
+    background-color: rgba(36, 36, 36, 0.59);
+    border-radius: 10px;
+
+} */
 
 #trackArea {
 
-    --trackArea-width: 0;
-    position: relative;
     grid-row-start: 3;
-    grid-column-start: 3;
+    grid-column: 1 / 4;
+
     display: flex;
     flex-direction: column;
     margin: 0.8em;
-    width: var(--trackArea-width);
+
 }
 
 </style>

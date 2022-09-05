@@ -9,7 +9,6 @@ window.onload = e => {
 
     // const leftArea = new LeftArea({target: app})
     const trackArea = new TrackArea({ target: app})
-    
 }
 
 
