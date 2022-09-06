@@ -12,6 +12,7 @@
   },
   "scripts": {
     "dev-build": "rollup -c -w",
+    "dev-build-deploy": "rollup -c",
     "dev-server": "wds --open /public/ --node-resolve --watch"
   },
   "dependencies": {
