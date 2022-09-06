@@ -3,7 +3,7 @@
     import { AudioCore } from './audio-utils.js';
     import { Drawing } from './Drawing.js';
     import { onMount } from 'svelte';
-    import { uuidv4 } from './utils.js';
+    // import { uuidv4 } from './utils.js';
 
     export let fileId;
     export let trackId;
@@ -18,7 +18,7 @@
 
     onMount(async () => {   
         
-        clipId = uuidv4();
+        clipId = '678'
 
         const clipArea = document.getElementById("clipArea")
         const marginLeft = Number(window.getComputedStyle(clipArea).marginLeft.split('px')[0])

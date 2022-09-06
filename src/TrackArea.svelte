@@ -3,7 +3,7 @@
     import { onMount } from "svelte";
     import { AudioCore } from './audio-utils.js';
     import { Drawing } from './Drawing.js';
-    import { v4 as uuidv4 } from 'uuid';;
+    // import { uuidv4 } from './utils.js';
 
     import Track from './Track.svelte'
     import Playhead from "./Playhead.svelte";
@@ -58,7 +58,7 @@
 
             let fileId = await AudioCore.addFile(audioBuffer, file.split('.wav')[0])
             if (fileId !== null) {
-                let trackId = uuidv4();
+                let trackId = '123';
                 const track = new Track({
                     target: trackArea,
                     props: {
