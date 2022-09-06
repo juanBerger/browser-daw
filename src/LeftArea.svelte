@@ -4,11 +4,11 @@
 
 </script>
 
-<div class='leftArea'/>
+<div id='leftArea'/>
 
 <style>
 
-.leftArea {
+#leftArea {
 
     grid-row-start: 3;
     grid-column-start: 1;

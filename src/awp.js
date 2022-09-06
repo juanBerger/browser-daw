@@ -64,7 +64,6 @@ class AWP extends AudioWorkletProcessor {
 
 					//new meta -- -- -- -- -- -- -- -- //
 					//find this meta and replace it (if it exists) in 3 locations. Timeline, transport, files
-					
 					this.Transport.syncMetaObjects(meta, prevMeta)
 					fileObj.metas[clipId] = meta
 					
@@ -81,31 +80,30 @@ class AWP extends AudioWorkletProcessor {
 
 			_generateWaveForm(audio, dType){
 
-				const scaler = (value, oldMin, oldMax, newMin, newMax) => {
-					return (newMax - newMin) * (value - oldMin	) / (oldMax - oldMin) + newMin
-				}
+				// const scaler = (value, oldMin, oldMax, newMin, newMax) => {
+				// 	return (newMax - newMin) * (value - oldMin	) / (oldMax - oldMin) + newMin
+				// }
 				
-				const typeRanges = {
-					'int16': [-32768, 32767]
-				}
+				// const typeRanges = {
+				// 	'int16': [-32768, 32767]
+				// }
 
-				let density = 200; //has to be density % numChannels = 0 --> this means next chunk always starts on a L sample if we index starting at 0 (and we are interleaved)
-				const height = 4000; //this is in pixels and is arbitrary since varying track heights will stretch and squash whatever the instrinsic height actually is. There is prob a sane default here
+				let density = 600; //has to be density % numChannels = 0 --> this means next chunk always starts on a L sample if we index starting at 0 (and we are interleaved)
+				//const height = 4000; //this is in pixels and is arbitrary since varying track heights will stretch and squash whatever the instrinsic height actually is. There is prob a sane default here
             	const channels = 2;
 
 				let points = [];
 				let x = 0;
 
 				for (let i=0; i < audio.length; i += density){ 
-					let scaled = Math.round(scaler(audio[i], typeRanges[dType][0], typeRanges[dType][1], 0, height))
-					points.push(String(x) + ',' + String(scaled))
+					points.push([x, audio[i], 0])
 					x++        
 				}
 			
 				const result = {
 					points: points,
 					sampleLength: audio.length,
-					height: height,
+					// height: height,
 					density: density,
 					channels: channels,
 
@@ -386,7 +384,7 @@ class AWP extends AudioWorkletProcessor {
 			}
 			
 			this.Transport.tick(frames)
-			this.port.postMessage({tick: this.Transport.frameNumber})
+			//this.port.postMessage({tick: this.Transport.frameNumber})
 		}
 
 

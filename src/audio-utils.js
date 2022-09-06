@@ -4,7 +4,7 @@ export const AudioCore = {
 
     audioContext: null,
     awp: null,
-    totalSamples: 0,
+    // totalSamples: 0,
     onMessageCallbacks: [],
     addFileResult: -1,
     getWaveFormResult: -1,

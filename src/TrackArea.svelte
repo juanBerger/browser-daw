@@ -1,64 +1,104 @@
 <script>
 
-import { onMount } from "svelte";
-import { AudioCore } from './audio-utils.js';
-import { Drawing } from './Drawing.js';
-import { uuidv4 } from './utils.js';
+    import { onMount } from "svelte";
+    import { AudioCore } from './audio-utils.js';
+    import { Drawing } from './Drawing.js';
+    import { uuidv4 } from './utils.js';
 
-import Track from './Track.svelte'
+    import Track from './Track.svelte'
+    import Playhead from "./Playhead.svelte";
 
-let trackArea;
-let _clipArea;
+    let trackArea;
+    let mouse;
 
-let _zoomStep = 15; // 0 to 30 --> as this gets higher polyline height should somehow get smaller
+    // window.onclick = async () => {
 
-let SR = 48000;
-let MAX_HOURS = 1;
+    //     let audioBuffer, file;
+    //     [ audioBuffer, file ] = await readFile();
+    //     let fileId = await AudioCore.addFile(audioBuffer, file.name.split('.wav')[0])
+    //     let trackId = uuidv4();
+    //     const track = new Track({
+    //         target: trackArea,
+    //         props: {
+    //             fileId: fileId,
+    //             trackId: trackId,
+    //             parent: trackArea,
+    //         }
+    //     })
+
+    // }
 
 
-onMount(()=> {  
+    const readFile = async () => {
+    
+        const [handle] = await window.showOpenFilePicker({
+            types: [{ description: '16 bit .wav file', accept: {'application/octet-stream': ['.wav']}}],
+            startIn: 'desktop'}) 
+        const file = await handle.getFile()
+        const buffer = await file.arrayBuffer()
+        return [buffer, file]
+    }
 
-    let totalSamples = SR * 60 * 60 * MAX_HOURS;
-    AudioCore.totalSamples = totalSamples;
+    //need a get request probably to load files automatically
+    onMount(async ()=> {  
 
-    Drawing.init(document.getElementById('sceneCanvas'), document.getElementById('app'))
+        await AudioCore.create();
 
-    /** FOR TEST **/
-    let trackId = uuidv4();
-    const track = new Track({
-        target: trackArea,
-        props: {
-            fileId: '123',
-            trackId: trackId,
-            parent: trackArea,
-        }
+        const clipArea = document.getElementById('clipArea')
+        console.log(clipArea)
+
+        Drawing.init(document.getElementById('sceneCanvas'), document.getElementById('app'))
+
+        trackArea.addEventListener('mouseenter', e => mouse = false)
+        trackArea.addEventListener('mouseleave', e => mouse = false)
+       
+        trackArea.addEventListener('dragover', e => { e.preventDefault() })
+        trackArea.addEventListener('drop', async e => {
+
+            e.preventDefault()
+
+            let handles = Array.from(e.dataTransfer.items)
+                .filter(handle => handle.type.includes('audio'))
+                .map(handle => handle.getAsFileSystemHandle())
+
+            for await (const handle of handles){
+                const file = await handle.getFile()
+                const audioBuffer = await file.arrayBuffer()
+                if (audioBuffer.byteLength > 0){
+                    if (!AudioCore.awp) await AudioCore.create()
+                    else if (AudioCore.audioContext.state === 'suspended'){
+                        await AudioCore.audioContext.resume()
+                        console.log(AudioCore.audioContext.state)
+                    }
+                    
+                    let fileId = await AudioCore.addFile(audioBuffer, file.name.split('.wav')[0])
+                    if (fileId !== null) {
+                        let trackId = uuidv4();
+                        const track = new Track({
+                            target: trackArea,
+                            props: {
+                                fileId: fileId,
+                                trackId: trackId,
+                                parent: trackArea,
+                            }
+                        })
+                    }
+                }
+            }
     })
 
-    // let trackId_1 = uuidv4();
-    // const track_1 = new Track({
-    //     target: trackArea,
-    //     props: {
-    //         fileId: '124',
-    //         trackId: trackId_1,
-    //         parent: trackArea,
-    //     }
-    // })
-})
+
+
+
+    })
 
 
 </script>
+    <div id='clipArea'/>
     <div bind:this={trackArea} id='trackArea'>
-        <!-- <canvas bind:this={sceneCanvas} id="sceneCanvas"/> -->
+        <Playhead></Playhead>
     </div>
-
 <style>
-
-/* #test {  
-    width: 100%;
-    height: 100%;
-    visibility: hidden;
-}
-
 
 
 #clipArea {
@@ -68,7 +108,7 @@ onMount(()=> {
     background-color: rgba(36, 36, 36, 0.59);
     border-radius: 10px;
 
-} */
+}
 
 #trackArea {
 

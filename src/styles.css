@@ -20,15 +20,9 @@ body {
     overflow: auto;
 }
 
-/* #sceneWrapper {
-    
-    grid-row-start: 3;
-    grid-column: 1 / 4;
-
-} */
-
 #sceneCanvas {
     position: absolute;
+    z-index: -100;
 }
 
 
