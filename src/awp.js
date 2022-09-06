@@ -380,13 +380,13 @@ class AWP extends AudioWorkletProcessor {
 				for (const track in this.Tracks.tracks){
 					let amp = this.Tracks.tracks[track].amplitude[0]
 					let rms = Math.sqrt((1/128) * amp);
-					this.port.postMessage({amplitude: {track: track, amplitude: rms}})
+					//this.port.postMessage({amplitude: {track: track, amplitude: rms}})
 				}
 			
 			}
 			
 			this.Transport.tick(frames)
-			this.port.postMessage({tick: this.Transport.frameNumber})
+			//this.port.postMessage({tick: this.Transport.frameNumber})
 		}
 
 

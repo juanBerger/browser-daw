@@ -356,11 +356,11 @@ onMount(async () => {
 </script>
 <div bind:this={_clip} class='clip'>
     <div bind:this={_mask} class='mask' id='-mask'></div>
-    <!-- <div class="line">
+    <div class="line">
         <svg xmlns="http://www.w3.org/2000/svg" width={_maxSvgWidth} height="100%" preserveAspectRatio='none' stroke-width='2' viewBox='{_vbShift} 0 {_vbLength} {_vbHeight}'>
            <polyline stroke='white' points={_points} fill='none'/>
         </svg>
-    </div> -->
+    </div>
 </div> 
 
 <style>
