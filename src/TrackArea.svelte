@@ -3,7 +3,7 @@
     import { onMount } from "svelte";
     import { AudioCore } from './audio-utils.js';
     import { Drawing } from './Drawing.js';
-    import { uuidv4 } from './utils.js';
+    import { v4 as uuidv4 } from 'uuid';;
 
     import Track from './Track.svelte'
     import Playhead from "./Playhead.svelte";
