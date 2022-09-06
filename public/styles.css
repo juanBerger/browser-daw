@@ -1,4 +1,4 @@
-body {
+#clipArea.svelte-jsa24a{grid-row-start:3;grid-column-start:3;margin:0.8em;background-color:rgba(36, 36, 36, 0.59);border-radius:10px}#trackArea.svelte-jsa24a{grid-row-start:3;grid-column:1 / 4;display:flex;flex-direction:column;margin:0.8em}body {
     background-color: rgba(28,28,28, 1);
     border: 1px solid rgb(255, 205, 238, 0.6);
     
@@ -51,6 +51,6 @@ body {
 
 }
 
-#leftArea.svelte-1241tm1{grid-row-start:3;grid-column-start:1;grid-column-end:2;display:flex;flex-direction:column;margin-top:0.8em;margin-bottom:0.8em;margin-left:0.3em;margin-right:0.3em}#clipArea.svelte-jsa24a{grid-row-start:3;grid-column-start:3;margin:0.8em;background-color:rgba(36, 36, 36, 0.59);border-radius:10px}#trackArea.svelte-jsa24a{grid-row-start:3;grid-column:1 / 4;display:flex;flex-direction:column;margin:0.8em}#header.svelte-1o68e6l{grid-column-start:3;grid-row-start:1;grid-row-end:2}#playhead.svelte-1h1o7jn{--playhead-height:0px;--playhead-pos:0px;position:absolute;left:var(--playhead-pos);border:1px solid rgba(212, 73, 243, 0.635);border-radius:10px;width:1px;height:var(--playhead-height);background-color:rgba(255, 255, 0, 0.286)
+#header.svelte-1o68e6l{grid-column-start:3;grid-row-start:1;grid-row-end:2}#leftArea.svelte-1241tm1{grid-row-start:3;grid-column-start:1;grid-column-end:2;display:flex;flex-direction:column;margin-top:0.8em;margin-bottom:0.8em;margin-left:0.3em;margin-right:0.3em}.trackRow.track.svelte-183k90z{display:flex;border-bottom:1px solid rgba(249, 206, 201, 0.373);width:100%}#playhead.svelte-1h1o7jn{--playhead-height:0px;--playhead-pos:0px;position:absolute;left:var(--playhead-pos);border:1px solid rgba(212, 73, 243, 0.635);border-radius:10px;width:1px;height:var(--playhead-height);background-color:rgba(255, 255, 0, 0.286)
 
-}.trackRow.track.svelte-183k90z{display:flex;border-bottom:1px solid rgba(249, 206, 201, 0.373);width:100%}#clip.svelte-ueuohz{--translateX:0px;display:grid;box-shadow:0.06em 0.06em 0.2em 0.09em rgba(163, 142, 168, 0.46);height:89%;margin-top:auto;margin-bottom:auto;transform:translateX(var(--translateX));background:rgba(177, 177, 177, 0.06);visibility:hidden}
+}#clip.svelte-ueuohz{--translateX:0px;display:grid;box-shadow:0.06em 0.06em 0.2em 0.09em rgba(163, 142, 168, 0.46);height:89%;margin-top:auto;margin-bottom:auto;transform:translateX(var(--translateX));background:rgba(177, 177, 177, 0.06);visibility:hidden}

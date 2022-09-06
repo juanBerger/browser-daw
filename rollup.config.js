@@ -3,6 +3,8 @@ import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import css from 'rollup-plugin-css-only'
 import copy from 'rollup-plugin-copy';
+import OMT from "@surma/rollup-plugin-off-main-thread";
+
 
 //Add any files here not part of the build graph
 const externalWatchFiles = [
@@ -13,7 +15,7 @@ const externalWatchFiles = [
 export default {
     input: 'src/app.js',
     output: {
-      file: 'public/app.js',
+      dir: 'public',
       sourcemap: true,
       format: 'esm'
     },
@@ -37,6 +39,7 @@ export default {
         resolve({browser: true}),
         commonjs(),
         css({output: 'styles.css'}),
+        OMT()
     ]
   };
   

@@ -1,5 +1,5 @@
 
-// import { v5 as uuidv5 } from 'uuid';
+import { v5 as uuidv5 } from 'uuid';
 
 class AWP extends AudioWorkletProcessor {
 
@@ -127,8 +127,7 @@ class AWP extends AudioWorkletProcessor {
 			//https://github.com/pierrec/js-xxhash try this to create a hash
 			add(audioBuffer, filename){
 				
-				// let fileId = uuidv5(filename, this.NAMESPACE)
-				let fileId = 'opwepwe';
+				let fileId = uuidv5(filename, this.NAMESPACE)
 
 				if (fileId in this.files){
 					console.warn('File already in the bin')

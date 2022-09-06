@@ -1,4 +1,4 @@
-
+import audioWorkletURL from "omt:./awp.js";
 
 export const AudioCore = {
 
@@ -79,7 +79,7 @@ export const AudioCore = {
     async create() {
 
         this.audioContext = new AudioContext({latencyHint: 0, sampleRate: 48000});
-        await this.audioContext.audioWorklet.addModule('./awp.js')
+        await this.audioContext.audioWorklet.addModule(audioWorkletURL)
         this.awp = new AudioWorkletNode(this.audioContext, 'awp', {numberOfInputs: [1], numberOfOutputs: [1], outputChannelCount: [2]});
         this.awp.connect(this.audioContext.destination);
         console.log('Created Audio Context: ', this.audioContext);

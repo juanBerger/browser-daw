@@ -16,6 +16,7 @@
     "dev-server": "wds --open /public/ --node-resolve --watch"
   },
   "dependencies": {
+    "@surma/rollup-plugin-off-main-thread": "^2.2.3",
     "jquery": "^3.6.1",
     "three": "^0.144.0",
     "three.meshline": "^1.4.0",
