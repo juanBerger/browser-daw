@@ -13,6 +13,8 @@
     let clip;
     let clipId;
     const DARK_MATTER_OFFSET = 8.75;
+    let drawGroup;
+
 
     onMount(async () => {   
         
@@ -28,7 +30,7 @@
         clip.style.setProperty('--translateX', String(translateX) + 'px');
         
         const boundingRect = clip.getBoundingClientRect();
-        Drawing.drawGroup(boundingRect.x - DARK_MATTER_OFFSET, boundingRect.y - DARK_MATTER_OFFSET, clip.clientWidth, clip.clientHeight, lineData); 
+        drawGroup = Drawing.createGroup(boundingRect.x - DARK_MATTER_OFFSET, boundingRect.y - DARK_MATTER_OFFSET, clip.clientWidth, clip.clientHeight, lineData); 
         clip.style.setProperty('visibility', 'visible');
 
         AudioCore.awp.port.postMessage({trims: {fileId: fileId, clipId: clipId, trackId: trackId, meta: [0, 0, 0]}}) //metas: [position, trimLeft, trimRight]

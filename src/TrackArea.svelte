@@ -7,6 +7,8 @@
 
     import Track from './Track.svelte'
     import Playhead from "./Playhead.svelte";
+    import jQuery from 'jquery'
+
 
     let trackArea;
     let mouse;
@@ -44,8 +46,55 @@
 
         await AudioCore.create();
 
-        const clipArea = document.getElementById('clipArea')
-        console.log(clipArea)
+        let file = "test_1.wav";
+        var oReq = new XMLHttpRequest();
+        oReq.open("GET", file, true);
+        oReq.responseType = "arraybuffer";
+
+        oReq.onload = async function(oEvent) {
+            
+            var audioBuffer = oReq.response;
+            console.log(audioBuffer)
+
+            let fileId = await AudioCore.addFile(audioBuffer, file.split('.wav')[0])
+            if (fileId !== null) {
+                let trackId = uuidv4();
+                const track = new Track({
+                    target: trackArea,
+                    props: {
+                        fileId: fileId,
+                        trackId: trackId,
+                        parent: trackArea,
+                    }
+                })
+            }
+
+         
+        };
+
+        oReq.send();
+
+
+
+
+
+
+        // jQuery.get("test_1.wav" , async function(data, status){
+        //     const file = "test_1.wav";
+        //     let audioBuffer = new TextEncoder().encode(data).buffer
+        //     let fileId = await AudioCore.addFile(audioBuffer, file.split('.wav')[0])
+        //     if (fileId !== null) {
+        //         let trackId = uuidv4();
+        //         const track = new Track({
+        //             target: trackArea,
+        //             props: {
+        //                 fileId: fileId,
+        //                 trackId: trackId,
+        //                 parent: trackArea,
+        //             }
+        //         })
+        //     }
+        // });
 
         Drawing.init(document.getElementById('sceneCanvas'), document.getElementById('app'))
 
@@ -53,41 +102,39 @@
         trackArea.addEventListener('mouseleave', e => mouse = false)
        
         trackArea.addEventListener('dragover', e => { e.preventDefault() })
-        trackArea.addEventListener('drop', async e => {
+        // trackArea.addEventListener('drop', async e => {
 
-            e.preventDefault()
+        //     e.preventDefault()
 
-            let handles = Array.from(e.dataTransfer.items)
-                .filter(handle => handle.type.includes('audio'))
-                .map(handle => handle.getAsFileSystemHandle())
+        //     let handles = Array.from(e.dataTransfer.items)
+        //         .filter(handle => handle.type.includes('audio'))
+        //         .map(handle => handle.getAsFileSystemHandle())
 
-            for await (const handle of handles){
-                const file = await handle.getFile()
-                const audioBuffer = await file.arrayBuffer()
-                if (audioBuffer.byteLength > 0){
-                    if (!AudioCore.awp) await AudioCore.create()
-                    else if (AudioCore.audioContext.state === 'suspended'){
-                        await AudioCore.audioContext.resume()
-                        console.log(AudioCore.audioContext.state)
-                    }
+        //     for await (const handle of handles){
+        //         const file = await handle.getFile()
+        //         const audioBuffer = await file.arrayBuffer()
+        //         if (audioBuffer.byteLength > 0){
+        //             if (!AudioCore.awp) await AudioCore.create()
+        //             else if (AudioCore.audioContext.state === 'suspended'){
+        //                 await AudioCore.audioContext.resume()
+        //                 console.log(AudioCore.audioContext.state)
+        //             }
                     
-                    let fileId = await AudioCore.addFile(audioBuffer, file.name.split('.wav')[0])
-                    if (fileId !== null) {
-                        let trackId = uuidv4();
-                        const track = new Track({
-                            target: trackArea,
-                            props: {
-                                fileId: fileId,
-                                trackId: trackId,
-                                parent: trackArea,
-                            }
-                        })
-                    }
-                }
-            }
-    })
-
-
+        //             let fileId = await AudioCore.addFile(audioBuffer, file.name.split('.wav')[0])
+        //             if (fileId !== null) {
+        //                 let trackId = uuidv4();
+        //                 const track = new Track({
+        //                     target: trackArea,
+        //                     props: {
+        //                         fileId: fileId,
+        //                         trackId: trackId,
+        //                         parent: trackArea,
+        //                     }
+        //                 })
+        //             }
+        //         }
+        //     }
+    //})
 
 
     })

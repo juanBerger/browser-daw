@@ -41,11 +41,17 @@ export const Drawing = {
 
     },
 
+    updateGroup(group, translateX, translateY, width, height, lineData){
 
-    drawGroup(translateX, translateY, width, height, lineData){
 
-        const parent = new THREE.Group();  delete
-        parent.position.set(translateX + (width * 0.5), translateY + (height * 0.5), 0)
+
+    },
+
+
+    createGroup(translateX, translateY, width, height, lineData){
+
+        const parent = new THREE.Group();
+        parent.position.set(translateX + (width * 0.5), translateY + (height * 0.5), 0);
 
         lineData.points.map((pt) => {
             pt[0] = scaler(pt[0], 0, lineData.points.length, width * -0.5, width * 0.5)
@@ -53,7 +59,6 @@ export const Drawing = {
             return pt
         })
 
-        console.log(lineData)
         const line = new MeshLine()
         line.setPoints(lineData.points.flat())
 
@@ -70,6 +75,8 @@ export const Drawing = {
         this.scene.add(parent)
 
         this.renderer.render(this.scene, this.camera);
+
+        return parent
 
     },
 
