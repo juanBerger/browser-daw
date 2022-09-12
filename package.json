@@ -7,6 +7,7 @@
     "rollup": "^2.75.7",
     "rollup-plugin-copy": "^3.4.0",
     "rollup-plugin-css-only": "^3.1.0",
+    "rollup-plugin-delete": "^2.0.0",
     "rollup-plugin-svelte": "^7.1.0",
     "svelte": "^3.48.0"
   },
@@ -15,6 +16,7 @@
     "dev-server": "wds --open /public/ --node-resolve --watch"
   },
   "dependencies": {
+    "@surma/rollup-plugin-off-main-thread": "^2.2.3",
     "uuid": "^8.3.2"
   }
 }

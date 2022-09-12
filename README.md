@@ -3,8 +3,7 @@ npm install
 
 ## run
 npm run dev-build <br/>
-npm run dev-server
-
+'open with live server'
 
 ## To do
 - prevent over trim, over slide

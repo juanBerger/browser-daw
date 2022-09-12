@@ -8,15 +8,11 @@ import {convolve} from './audio-utils.js'
 
 window.onload = e => {
 
-    console.log(convolve(false))
     const app = document.getElementById('app')
     const leftArea = new LeftArea({target: app})
     const trackArea = new TrackArea({ target: app})
     const header = new Header({target: app})
 }
-
-
-
 
 
 
@@ -31,108 +27,101 @@ window.onload = e => {
 // }
 
 
-// -- OLD -- OLD -- //
 
 
-// window.onclick = async e => {
+
+ // //** SET TO MAX WIDTH*/
+    // let totalSamples = SR * 60 * 60 * NUM_HOURS
+    // AudioCore.totalSamples = totalSamples
+    // framesPerPixel.ease(_zoomStep)
+    // let pixelWidth = String(Math.round(totalSamples / get(framesPerPixel)))
+    // _this.style.setProperty('--trackArea-width', pixelWidth + 'px')
     
-//     //ha ha 
-//     if (tracks.length > 0)
-//         return
+
+    // /** LISTEN TO THIS RESIZE */
+    // const resizeObserver = new ResizeObserver(entries => {
+    //     for (let entry of entries){ playheadHeight = entry.contentRect.height }
+    // })
+    // resizeObserver.observe(_this)
     
-//     const track = document.createElement('div')
-//     track.id = 'track_' + String(tracks.length)
-//     track.className = 'track'
-//     const audioBuffer = await readFile()
-//     let audioMeta = wavParser(audioBuffer.slice(0, 44))
 
-//     //track can be already existing
-//     const clip = new Clip({target: track, 
-//         props: {
-//             audioBuffer: audioBuffer,
-//             audioMeta: audioMeta,
-//             zoomLevel: 0
-//         }
-//     })
-
-//     const trackArea = document.getElementById('trackArea')
-//     trackArea.appendChild(track)
-//     tracks.push(track)
-// }
-
-     
-// point.setAttribute('cy', String(lastY))
-// point.setAttribute('cx', String(scaled))
-// point.setAttribute('r', '5')
-// point.setAttribute('stroke', 'black')
-// point.setAttribute('fill', 'black')
-// point.setAttribute('stroke-width', '2')
-
-
-// window.onload = async e => {
-
-//     let fileLoader = document.getElementById('fileLoader')
-//     fileLoader.onclick = async e => {
-//         let buffer = await readFile()
-//         let audio = new Float32Array(buffer)
-//         let waveformPoints = audio.subarray(0, 48000)
-//         console.log(waveformPoints.length)
-
-
-//         //Start Audio
-//         // let audioContext = new AudioContext({latencyHint: 0, sampleRate: 48000});
-//         // await audioContext.audioWorklet.addModule('awp.js')
-//         // let awp = new AudioWorkletNode(audioContext, 'awp', {numberOfInputs: [1], numberOfOutputs: [1], outputChannelCount: [2]});
-//         // awp.connect(audioContext.destination)
-//     }
-// }
+    // /** ZOOMING */
+    // _this.addEventListener('mouseenter', e => _mouse = true)
+    // _this.addEventListener('mouseleave', e => _mouse = false)
+    // document.addEventListener('keydown', e => {
+    //     if (e.key === 'r' || e.key === 't'){
+    //         if (e.key === 'r') _zoomStep >= 30 ? _zoomStep = _zoomStep : _zoomStep++
+    //         else _zoomStep <= 0 ? _zoomStep = _zoomStep : _zoomStep--
+    //         framesPerPixel.ease(_zoomStep)
+    //         //console.log('[ZOOMING]')
+    //     }          
+    // })
 
 
 
 
+    // //* DRAG AND DROP *//   
+    //_this.addEventListener('dragover', e => { e.preventDefault() })
+    //_this.addEventListener('drop', async e => {
+
+    //    e.preventDefault()
+
+        // let handles = Array.from(e.dataTransfer.items)
+        // .filter(handle => handle.type.includes('audio'))
+        // .map(handle => handle.getAsFileSystemHandle())
+
+        // for await (const handle of handles){
+        //     const file = await handle.getFile()
+        //     const audioBuffer = await file.arrayBuffer()
+        //     if (audioBuffer.byteLength > 0){
+
+        //         if (!AudioCore.awp) await AudioCore.create()
+                
+        //         else if (AudioCore.audioContext.state === 'suspended'){
+        //             await AudioCore.audioContext.resume()
+        //             console.log(AudioCore.audioContext.state)
+        //         }
+                
+        //         console.log(handle)
+        //         // let id = await AudioCore.addFile(audioBuffer, file.name.split('.wav')[0])
+        //         // const lineData = await AudioCore.getWaveform(id); //get waveform from back end
+        //         // console.log(lineData)
 
 
-/**
- * 
- * @param {*} uiState --> per track clip postion, offset, backing file 
- * 
- * {trackId: [  {in: x, out: x, inTrim: x, outTrim: x, fileId: x},
- *              {in: x, out: x, inTrim: x, outTrim: x, fileId: x},
- * }
- * 
- */
-
- //construct Files Object
-/**
- * OLD
- * { fileIdA:
- *          [   
- *              ArrayBuffer -->, becomes detached when passing to awp
- *              {trackId1: [ SAB, {in: x, out: x, inTrim: x, outTrim: x}, {in: x, out: x, inTrim: x, outTrim: x}, ],
- *              {trackId2: [ SAB, {in: x, out: x, inTrim: x, outTrim: x}, {in: x, out: x, inTrim: x, outTrim: x}, ]
- *          ]
- *           
- */
+        //         if (id !== null) {
+                    
+                    
 
 
 
-/**
- * MemoryObject
- * {fileUUIDv5: [ArrayBuffer, anythingElse?], }
- * 
- * 
- * Updated on UI change, on init
- * ClipsObject -- these should be sorted into timeline order? 
- * [{in: sampleNumber, out: sampleNumber, trims: [in, out], fileId: uuidv5},        ]
- * 
- *              x x x x x
- * 
- *                  5% or 60%
- *              
- * 
- *             --> pixel width (number of them), is proportional to actual length in samples relative to number of samples in the viewport
- * 
- *             480000 samples --> 1/60th of a 1 minute span
- *  
- *             To set a baseline for the viewport span. Just pick a max length (1 hour for example). Set grid lines accordingly, then all zoom steps are proportional to that
- */
+                    
+                    
+                    
+                    
+        //             //if (hovering over existing track){
+        //                 //add to that track
+        //             //}
+        //             //else:
+        //             // let trackId = uuidv4();
+        //             // const track = new Track({
+        //             //     target: _this,
+        //             //     props: {
+        //             //         fileId: id,
+        //             //         trackId: trackId,
+        //             //         parent: _this
+        //             //     }
+        //             // })
+
+        //             // let leftArea = document.getElementsByClassName('leftArea')[0];
+        //             // const meter = new Meter({
+        //             //     target: leftArea,
+        //             //     props: {
+        //             //         fileId: id,
+        //             //         trackId: trackId,
+        //             //     }
+        //             // })
+                    
+        //         }
+                
+        //     }
+        //}
