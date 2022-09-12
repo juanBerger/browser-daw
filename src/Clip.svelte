@@ -273,15 +273,15 @@ onMount(async () => {
                 
                 
     
-                new Clip({
-                    target: parent,
-                    props: {
-                        start: start + lOffset,
-                        clipTrims: rClipTrims,
-                        fileId: fileId,
-                        parent: parent
-                    }
-                })
+                // new Clip({
+                //     target: parent,
+                //     props: {
+                //         start: start + lOffset,
+                //         clipTrims: rClipTrims,
+                //         fileId: fileId,
+                //         parent: parent
+                //     }
+                // })
 
                 unsub(); //unsubs from the fpp store
                 clearCore(fileId, clipId);

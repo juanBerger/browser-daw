@@ -386,7 +386,7 @@ class AWP extends AudioWorkletProcessor {
 			}
 			
 			this.Transport.tick(frames)
-			//this.port.postMessage({tick: this.Transport.frameNumber})
+			this.port.postMessage({tick: this.Transport.frameNumber})
 		}
 
 
