@@ -27,6 +27,7 @@ let _vbLength = 0; //the polyline creates a new point at each pixel
 let _vbHeight = 0;
 let _vbShift = '0';
 let _maxSvgWidth = 0;
+let lineWidth = 0; //this has to translate line space
 
 //let clipId;
 //let lineTrims = [0, 0];
@@ -143,9 +144,10 @@ const pixelsToLinePoints = (pixels, fpp, lineData) => {
 }
 
 
-
 const updateWaveform = (lineTrims, lineData) => {
-    _points = lineData.points.slice(lineTrims[0], (lineData.points.length - lineTrims[1])).join(' ');
+    const subArray = lineData.points.slice(lineTrims[0], (lineData.points.length - lineTrims[1]));
+    _vbLength = String(subArray.length)
+    _points = subArray.join(' ');
 }
 
 
@@ -164,7 +166,7 @@ const clipTrimsToLineTrims = (clipChange, lineData) => {
 
 
 /**
- * samples to pixels - 
+ * frames to pixels - 
  * @param frames - array to sum. This is so that we can easily use with trims
  * @param fpp - current frames per pixel value
  */
@@ -185,6 +187,13 @@ const setCoreTrims = (clipTrims, fileId, clipId, position, trackId) => {
 
 const updateTrims = (pixelChange, side, clipTrims, lineTrims, lineData) => {
 
+    // console.log(pixelChange)
+    // if (pixelChange !== 0){
+    //     pixelChange = 1;
+    //     console.log(pixelChange)
+    // }    
+    
+
     if (side === 'left'){
         let lNewClipTrim = clipTrims[0] + pixelsToFrames(pixelChange, get(framesPerPixel));
         if (lNewClipTrim < 0) return;
@@ -195,12 +204,11 @@ const updateTrims = (pixelChange, side, clipTrims, lineTrims, lineData) => {
         if (lNewLineTrim < 0) return;
         lineTrims[0] = lNewLineTrim
         _vbShift = String(Number(lineTrims[0]));  //Need to move the viewbox a commesurate amount
-        //start = updatePosition(pixelChange, start); 
     }
     
     //for actual trimming pixel change will be negative
     else if (side === 'right'){
-        pixelChange *= -1;
+        pixelChange *= -1;``
         let rNewClipTrim = clipTrims[1] + pixelsToFrames(pixelChange, get(framesPerPixel));
         if (rNewClipTrim < 0) return;
         clipTrims[1] = rNewClipTrim
@@ -229,9 +237,12 @@ onMount(async () => {
         clipId = uuidv4();
         lineData = await AudioCore.getWaveform(fileId); //get waveform from back end
 
-        _vbHeight = String(lineData.height);
-        _vbLength = String(lineData.points.length);
+        console.log(lineData)
+
+        _vbHeight = String(lineData.height); //an arbitrary nmber of pixels since height is scaled to conatiner box. Higher values create lighter looking lines
+        _vbLength = String(lineData.points.length); //this is really already in pixel space because each point increments by one pixel (its 1px per 'density' number of samples)
         _maxSvgWidth = framesToPixels([lineData.sampleLength / lineData.channels], get(framesPerPixel));
+
         
         let lineTrims = clipTrimsToLineTrims(clipTrims, lineData);
         updateTrims(0, 'left', clipTrims, lineTrims, lineData);
@@ -240,11 +251,11 @@ onMount(async () => {
         //* MOUSE *//
         window.addEventListener('mousedown', e => {
             //reset any highlights
-            _mask.style.setProperty('--opacity', 0);
-            _mask.style.setProperty('--position', String(hlStart) + 'px');
-            _mask.style.setProperty('--width', '0px');
-            hlStart = 0;
-            hlEnd = 0;
+            // _mask.style.setProperty('--opacity', 0);
+            // _mask.style.setProperty('--position', String(hlStart) + 'px');
+            // _mask.style.setProperty('--width', '0px');
+            // hlStart = 0;
+            // hlEnd = 0;
 
         })
 
@@ -286,7 +297,6 @@ onMount(async () => {
                 unsub(); //unsubs from the fpp store
                 clearCore(fileId, clipId);
                 
-                
             }
         })
 
@@ -315,7 +325,7 @@ onMount(async () => {
         _clip.addEventListener('mousemove', e => {
 
             if (isHighlighting){
-                highlightHandler(e);
+                //highlightHandler(e);
             
             }
             
@@ -355,9 +365,9 @@ onMount(async () => {
 
 </script>
 <div bind:this={_clip} class='clip'>
-    <div bind:this={_mask} class='mask' id='-mask'></div>
+    <!-- <div bind:this={_mask} class='mask' id='-mask'></div> -->
     <div class="line">
-        <svg xmlns="http://www.w3.org/2000/svg" width={_maxSvgWidth} height="100%" preserveAspectRatio='none' stroke-width='2' viewBox='{_vbShift} 0 {_vbLength} {_vbHeight}'>
+        <svg xmlns="http://www.w3.org/2000/svg" height="100%" width="100%" preserveAspectRatio="none" stroke-width='2' viewBox='{_vbShift} 0 {_vbLength} {_vbHeight}'>
            <polyline stroke='white' points={_points} fill='none'/>
         </svg>
     </div>
@@ -368,7 +378,8 @@ onMount(async () => {
         --position: 0px;
         --cursor: auto;
         --width: 0px;
-        display: grid;
+        /* display: grid; */
+        position: relative;
         grid-template-rows: 100%;
         box-shadow: 0.06em 0.06em 0.2em 0.09em rgba(163, 142, 168, 0.46);
         height: 89%;
@@ -383,8 +394,10 @@ onMount(async () => {
     .line {
         width: 100%;
         height: 100%;
-        grid-row-start: 1;
-        grid-column-start: 1;
+        /* grid-row-start: 1;
+        grid-column-start: 1; */
+        /* transform: translateX(var(--position)); */
+        /* position: absolute; */
     }
 
     .mask {
@@ -392,10 +405,10 @@ onMount(async () => {
         --position: 0px;
         --width: 0px;
         width: var(--width);
-        transform: translateX(var(--position));
+        /* transform: translateX(var(--position)); */
         height: 100%;
-        grid-row-start: 1;
-        grid-column-start: 1;
+        /* grid-row-start: 1;
+        grid-column-start: 1; */
         background: rgba(209, 213, 255, var(--opacity)); /*up to 0.2 maybe*/
 
     }

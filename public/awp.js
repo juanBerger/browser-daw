@@ -1,4 +1,5 @@
 
+import { check_outros } from 'svelte/internal';
 import { v5 as uuidv5 } from 'uuid';
 
 class AWP extends AudioWorkletProcessor {
@@ -79,6 +80,46 @@ class AWP extends AudioWorkletProcessor {
 			files: {},
 			NAMESPACE: 'd176d515-5974-40b9-b5c0-1b21800f1684',
 
+			_wavParser (byteView) {
+				
+				console.log(String.fromCharCode(...byteView.slice(0, 4))) 
+				const ch = byteView.slice(22, 24)[0]
+				const sr = new Int32Array(byteView.buffer.slice(24, 28))[0]
+				const dtype = byteView.slice(34, 36)[0]
+
+				
+				let isSearching = true;
+				const chunkInfo = {ch: ch, sr: sr, dtype: dtype, dataStart: null, dataEnd: null};
+				let idx = 36;
+				let count = 0;
+
+				while(isSearching){
+
+					if (count > 300){
+						console.error('No data chunk found!');
+						isSearching = false;
+					}
+
+					let endIdx = idx + 4;
+					const chunkType = String.fromCharCode(...byteView.slice(idx, endIdx))
+					const chunkSize = new Int32Array(byteView.buffer.slice(endIdx, endIdx + 4))[0]
+					
+					console.log('[FOUND CHUNK TYPE: ', chunkType)
+					
+					if (chunkType === 'data'){
+						isSearching = false
+						chunkInfo.dataStart = endIdx + 4;
+						chunkInfo.dataEnd = chunkInfo.dataStart + chunkSize;
+					}
+
+					idx = endIdx + 4 + chunkSize
+					count++;
+				}
+
+				return chunkInfo
+		
+			},
+
 			_generateWaveForm(audio, dType){
 
 				const scaler = (value, oldMin, oldMax, newMin, newMax) => {
@@ -90,7 +131,7 @@ class AWP extends AudioWorkletProcessor {
 				}
 
 				let density = 200; //has to be density % numChannels = 0 --> this means next chunk always starts on a L sample if we index starting at 0 (and we are interleaved)
-				const height = 4000; //this is in pixels and is arbitrary since varying track heights will stretch and squash whatever the instrinsic height actually is. There is prob a sane default here
+				const height = 2000; //this is in pixels and is arbitrary since varying track heights will stretch and squash whatever the instrinsic height actually is. There is prob a sane default here
             	const channels = 2;
 
 				let points = [];
@@ -127,7 +168,7 @@ class AWP extends AudioWorkletProcessor {
 
 
 			//https://github.com/pierrec/js-xxhash try this to create a hash
-			add(audioBuffer, filename){
+			add(audioBuffer , filename){
 				
 				let fileId = uuidv5(filename, this.NAMESPACE)
 
@@ -139,7 +180,9 @@ class AWP extends AudioWorkletProcessor {
 				else {
 					
 					//use wav parser util to check data type
-					const audio = new Int16Array(audioBuffer.slice(44, audioBuffer.byteLength)) //int16 only for now
+					const byteView = new Uint8Array(audioBuffer)
+					const parsedHeader = this._wavParser(byteView)
+					const audio = new Int16Array(byteView.buffer.slice(parsedHeader.dataStart, parsedHeader.dataEnd))
 					const waveform = this._generateWaveForm(audio, 'int16')
 
 					this.files[fileId] = {

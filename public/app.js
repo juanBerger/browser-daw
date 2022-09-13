@@ -1,279 +1,4 @@
-function noop() { }
-function run(fn) {
-    return fn();
-}
-function blank_object() {
-    return Object.create(null);
-}
-function run_all(fns) {
-    fns.forEach(run);
-}
-function is_function(thing) {
-    return typeof thing === 'function';
-}
-function safe_not_equal(a, b) {
-    return a != a ? b == b : a !== b || ((a && typeof a === 'object') || typeof a === 'function');
-}
-function is_empty(obj) {
-    return Object.keys(obj).length === 0;
-}
-function subscribe(store, ...callbacks) {
-    if (store == null) {
-        return noop;
-    }
-    const unsub = store.subscribe(...callbacks);
-    return unsub.unsubscribe ? () => unsub.unsubscribe() : unsub;
-}
-function get_store_value(store) {
-    let value;
-    subscribe(store, _ => value = _)();
-    return value;
-}
-function insert(target, node, anchor) {
-    target.insertBefore(node, anchor || null);
-}
-function detach(node) {
-    node.parentNode.removeChild(node);
-}
-function element(name) {
-    return document.createElement(name);
-}
-function attr(node, attribute, value) {
-    if (value == null)
-        node.removeAttribute(attribute);
-    else if (node.getAttribute(attribute) !== value)
-        node.setAttribute(attribute, value);
-}
-function children(element) {
-    return Array.from(element.childNodes);
-}
-
-let current_component;
-function set_current_component(component) {
-    current_component = component;
-}
-function get_current_component() {
-    if (!current_component)
-        throw new Error('Function called outside component initialization');
-    return current_component;
-}
-function onMount(fn) {
-    get_current_component().$$.on_mount.push(fn);
-}
-
-const dirty_components = [];
-const binding_callbacks = [];
-const render_callbacks = [];
-const flush_callbacks = [];
-const resolved_promise = Promise.resolve();
-let update_scheduled = false;
-function schedule_update() {
-    if (!update_scheduled) {
-        update_scheduled = true;
-        resolved_promise.then(flush);
-    }
-}
-function add_render_callback(fn) {
-    render_callbacks.push(fn);
-}
-// flush() calls callbacks in this order:
-// 1. All beforeUpdate callbacks, in order: parents before children
-// 2. All bind:this callbacks, in reverse order: children before parents.
-// 3. All afterUpdate callbacks, in order: parents before children. EXCEPT
-//    for afterUpdates called during the initial onMount, which are called in
-//    reverse order: children before parents.
-// Since callbacks might update component values, which could trigger another
-// call to flush(), the following steps guard against this:
-// 1. During beforeUpdate, any updated components will be added to the
-//    dirty_components array and will cause a reentrant call to flush(). Because
-//    the flush index is kept outside the function, the reentrant call will pick
-//    up where the earlier call left off and go through all dirty components. The
-//    current_component value is saved and restored so that the reentrant call will
-//    not interfere with the "parent" flush() call.
-// 2. bind:this callbacks cannot trigger new flush() calls.
-// 3. During afterUpdate, any updated components will NOT have their afterUpdate
-//    callback called a second time; the seen_callbacks set, outside the flush()
-//    function, guarantees this behavior.
-const seen_callbacks = new Set();
-let flushidx = 0; // Do *not* move this inside the flush() function
-function flush() {
-    const saved_component = current_component;
-    do {
-        // first, call beforeUpdate functions
-        // and update components
-        while (flushidx < dirty_components.length) {
-            const component = dirty_components[flushidx];
-            flushidx++;
-            set_current_component(component);
-            update(component.$$);
-        }
-        set_current_component(null);
-        dirty_components.length = 0;
-        flushidx = 0;
-        while (binding_callbacks.length)
-            binding_callbacks.pop()();
-        // then, once components are updated, call
-        // afterUpdate functions. This may cause
-        // subsequent updates...
-        for (let i = 0; i < render_callbacks.length; i += 1) {
-            const callback = render_callbacks[i];
-            if (!seen_callbacks.has(callback)) {
-                // ...so guard against infinite loops
-                seen_callbacks.add(callback);
-                callback();
-            }
-        }
-        render_callbacks.length = 0;
-    } while (dirty_components.length);
-    while (flush_callbacks.length) {
-        flush_callbacks.pop()();
-    }
-    update_scheduled = false;
-    seen_callbacks.clear();
-    set_current_component(saved_component);
-}
-function update($$) {
-    if ($$.fragment !== null) {
-        $$.update();
-        run_all($$.before_update);
-        const dirty = $$.dirty;
-        $$.dirty = [-1];
-        $$.fragment && $$.fragment.p($$.ctx, dirty);
-        $$.after_update.forEach(add_render_callback);
-    }
-}
-const outroing = new Set();
-function transition_in(block, local) {
-    if (block && block.i) {
-        outroing.delete(block);
-        block.i(local);
-    }
-}
-function mount_component(component, target, anchor, customElement) {
-    const { fragment, on_mount, on_destroy, after_update } = component.$$;
-    fragment && fragment.m(target, anchor);
-    if (!customElement) {
-        // onMount happens before the initial afterUpdate
-        add_render_callback(() => {
-            const new_on_destroy = on_mount.map(run).filter(is_function);
-            if (on_destroy) {
-                on_destroy.push(...new_on_destroy);
-            }
-            else {
-                // Edge case - component was destroyed immediately,
-                // most likely as a result of a binding initialising
-                run_all(new_on_destroy);
-            }
-            component.$$.on_mount = [];
-        });
-    }
-    after_update.forEach(add_render_callback);
-}
-function destroy_component(component, detaching) {
-    const $$ = component.$$;
-    if ($$.fragment !== null) {
-        run_all($$.on_destroy);
-        $$.fragment && $$.fragment.d(detaching);
-        // TODO null out other refs, including component.$$ (but need to
-        // preserve final state?)
-        $$.on_destroy = $$.fragment = null;
-        $$.ctx = [];
-    }
-}
-function make_dirty(component, i) {
-    if (component.$$.dirty[0] === -1) {
-        dirty_components.push(component);
-        schedule_update();
-        component.$$.dirty.fill(0);
-    }
-    component.$$.dirty[(i / 31) | 0] |= (1 << (i % 31));
-}
-function init(component, options, instance, create_fragment, not_equal, props, append_styles, dirty = [-1]) {
-    const parent_component = current_component;
-    set_current_component(component);
-    const $$ = component.$$ = {
-        fragment: null,
-        ctx: null,
-        // state
-        props,
-        update: noop,
-        not_equal,
-        bound: blank_object(),
-        // lifecycle
-        on_mount: [],
-        on_destroy: [],
-        on_disconnect: [],
-        before_update: [],
-        after_update: [],
-        context: new Map(options.context || (parent_component ? parent_component.$$.context : [])),
-        // everything else
-        callbacks: blank_object(),
-        dirty,
-        skip_bound: false,
-        root: options.target || parent_component.$$.root
-    };
-    append_styles && append_styles($$.root);
-    let ready = false;
-    $$.ctx = instance
-        ? instance(component, options.props || {}, (i, ret, ...rest) => {
-            const value = rest.length ? rest[0] : ret;
-            if ($$.ctx && not_equal($$.ctx[i], $$.ctx[i] = value)) {
-                if (!$$.skip_bound && $$.bound[i])
-                    $$.bound[i](value);
-                if (ready)
-                    make_dirty(component, i);
-            }
-            return ret;
-        })
-        : [];
-    $$.update();
-    ready = true;
-    run_all($$.before_update);
-    // `false` as a special case of no DOM component
-    $$.fragment = create_fragment ? create_fragment($$.ctx) : false;
-    if (options.target) {
-        if (options.hydrate) {
-            const nodes = children(options.target);
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            $$.fragment && $$.fragment.l(nodes);
-            nodes.forEach(detach);
-        }
-        else {
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            $$.fragment && $$.fragment.c();
-        }
-        if (options.intro)
-            transition_in(component.$$.fragment);
-        mount_component(component, options.target, options.anchor, options.customElement);
-        flush();
-    }
-    set_current_component(parent_component);
-}
-/**
- * Base class for Svelte components. Used when dev=false.
- */
-class SvelteComponent {
-    $destroy() {
-        destroy_component(this, 1);
-        this.$destroy = noop;
-    }
-    $on(type, callback) {
-        const callbacks = (this.$$.callbacks[type] || (this.$$.callbacks[type] = []));
-        callbacks.push(callback);
-        return () => {
-            const index = callbacks.indexOf(callback);
-            if (index !== -1)
-                callbacks.splice(index, 1);
-        };
-    }
-    $set($$props) {
-        if (this.$$set && !is_empty($$props)) {
-            this.$$.skip_bound = true;
-            this.$$set($$props);
-            this.$$.skip_bound = false;
-        }
-    }
-}
+import { n as noop, s as safe_not_equal, S as SvelteComponent, i as init, e as element, a as svg_element, b as attr, c as insert, d as append, f as detach, o as onMount, g as get_store_value, h as binding_callbacks } from './index-0cb22112.js';
 
 const subscriber_queue = [];
 /**
@@ -328,7 +53,14 @@ const scaler = (value, oldMin, oldMax, newMin, newMax) => {
     return (newMax - newMin) * (value - oldMin) / (oldMax - oldMin) + newMin
 };
 
-var awpURL = "awp-96854218.js";
+//http://www.topherlee.com/software/pcm-tut-wavformat.htmlx
+
+function uuidv4() {
+    return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => 
+        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+}
+
+var awpURL = "awp-c896646c.js";
 
 const AudioCore = {
 
@@ -440,7 +172,7 @@ function applyEasing (x) {
             let scaled = Math.round(scaler(eased, 0, 30, MIN_FPP, MAX_FPP));
             //scaled % CHANNELS === 0 ? scaled = scaled : scaled += scaled 
             scaled /= CHANNELS;
-            //console.log('[CURRENT FPP]...', scaled)
+            console.log('[CURRENT FPP]...', scaled);
             set(scaled);
             
         },
@@ -462,6 +194,473 @@ AudioCore.registerCallback(e => {
     if (e.data.tick) currentFrame.set(e.data.tick);
 });
 
+/* src/Clip.svelte generated by Svelte v3.48.0 */
+
+function create_fragment$4(ctx) {
+	let div1;
+	let div0;
+	let svg;
+	let polyline;
+	let svg_viewBox_value;
+
+	return {
+		c() {
+			div1 = element("div");
+			div0 = element("div");
+			svg = svg_element("svg");
+			polyline = svg_element("polyline");
+			attr(polyline, "stroke", "white");
+			attr(polyline, "points", /*_points*/ ctx[1]);
+			attr(polyline, "fill", "none");
+			attr(svg, "xmlns", "http://www.w3.org/2000/svg");
+			attr(svg, "height", "100%");
+			attr(svg, "width", "100%");
+			attr(svg, "preserveAspectRatio", "none");
+			attr(svg, "stroke-width", "2");
+			attr(svg, "viewBox", svg_viewBox_value = "" + (/*_vbShift*/ ctx[4] + " 0 " + /*_vbLength*/ ctx[2] + " " + /*_vbHeight*/ ctx[3]));
+			attr(div0, "class", "line svelte-6l3kxw");
+			attr(div1, "class", "clip svelte-6l3kxw");
+		},
+		m(target, anchor) {
+			insert(target, div1, anchor);
+			append(div1, div0);
+			append(div0, svg);
+			append(svg, polyline);
+			/*div1_binding*/ ctx[10](div1);
+		},
+		p(ctx, dirty) {
+			if (dirty[0] & /*_points*/ 2) {
+				attr(polyline, "points", /*_points*/ ctx[1]);
+			}
+
+			if (dirty[0] & /*_vbShift, _vbLength, _vbHeight*/ 28 && svg_viewBox_value !== (svg_viewBox_value = "" + (/*_vbShift*/ ctx[4] + " 0 " + /*_vbLength*/ ctx[2] + " " + /*_vbHeight*/ ctx[3]))) {
+				attr(svg, "viewBox", svg_viewBox_value);
+			}
+		},
+		i: noop,
+		o: noop,
+		d(detaching) {
+			if (detaching) detach(div1);
+			/*div1_binding*/ ctx[10](null);
+		}
+	};
+}
+
+function instance$3($$self, $$props, $$invalidate) {
+	let { parent } = $$props;
+	let { fileId } = $$props;
+	let { trackId } = $$props;
+	let { start } = $$props;
+	let { clipTrims } = $$props;
+
+	//exposed in markup
+	let clipId;
+
+	let lineData;
+	let _clip;
+	let _points = '';
+	let _vbLength = 0; //the polyline creates a new point at each pixel
+	let _vbHeight = 0;
+	let _vbShift = '0';
+
+	/* Mouse states */
+	let mouse = null;
+
+	let mouseDown = false;
+
+	/* Actions */
+	let isTrimming = false;
+
+	let isMoving = false;
+	let isHighlighting = false;
+	let hlStart = 0;
+	let hlEnd = 0;
+	let lastfpp = null;
+
+	const unsub = framesPerPixel.subscribe(fpp => {
+		const zoom = () => {
+			updateClipWidth(clipTrims, lineData, fpp);
+			let prevPosFrames = pixelsToFrames(start, lastfpp);
+			let newPosPixels = framesToPixels([prevPosFrames], fpp);
+			let delta = newPosPixels - start; //should be negative when we zoom out
+			$$invalidate(5, start = updatePosition(delta, start));
+			Number(window.getComputedStyle(_clip).getPropertyValue('--width').split('px')[0]);
+			lastfpp = fpp;
+		};
+
+		//skip the zoom operation when the fpp is initially set on load
+		!lastfpp ? lastfpp = fpp : zoom();
+	});
+
+	const setVerticalPointers = e => {
+		let pointerType;
+
+		if (mouse) {
+			if (e.offsetY > _clip.offsetHeight / 2) {
+				_clip.style.setProperty('--cursor', 'grab');
+				pointerType = 'grab';
+			} else {
+				pointerType = 'text';
+				_clip.style.setProperty('--cursor', 'text');
+			}
+		}
+
+		return pointerType;
+	};
+
+	// const clipWidth = (lineData, clipTrims, spp) => {
+	//     let sampleWidth = lineData.sampleLength - (clipTrims[0] + clipTrims[1]);
+	//     let pixelWidth = (sampleWidth / spp) / lineData.channels
+	//     return Math.round(pixelWidth)
+	// }
+	// const setClipSize = (lineData, spp) => {
+	//     let audioFrames = (lineData.points.length * lineData.density) / lineData.channels
+	//     return Math.round(audioFrames / spp)
+	// }
+	// const zoomClips = fpp => {
+	//     let sampleLength = (lineTrims[1] - lineTrims[0]) * lineData.density
+	//     return Math.round((sampleLength / spp) / lineData.channels)
+	// }
+	/**
+ * 
+ * @param pixels
+ * @param fpp
+ * @param lineData
+ */
+	const pixelsToLinePoints = (pixels, fpp, lineData) => {
+		let frames = pixels * fpp;
+		return Math.round(frames / (lineData.density / lineData.channels));
+	};
+
+	/**
+ * 
+ * @param pixelChange : Positive to the right, negative to the left.
+ * @param start: &start position in pixels. Updates this global var in place
+ */
+	const updatePosition = (pixelChange, start) => {
+		start += pixelChange;
+		_clip.style.setProperty('--position', start + 'px');
+		return start;
+	};
+
+	const updateWaveform = (lineTrims, lineData) => {
+		const subArray = lineData.points.slice(lineTrims[0], lineData.points.length - lineTrims[1]);
+		$$invalidate(2, _vbLength = String(subArray.length));
+		$$invalidate(1, _points = subArray.join(' '));
+	};
+
+	const updateClipWidth = (clipTrims, lineData, fpp) => {
+		let totalWidth = lineData.sampleLength / lineData.channels - (clipTrims[0] + clipTrims[1]);
+		totalWidth /= fpp;
+		_clip.style.setProperty('--width', String(Math.round(totalWidth)) + 'px');
+	};
+
+	const clipTrimsToLineTrims = (clipChange, lineData) => {
+		return clipChange.map(c => c / (lineData.density / lineData.channels));
+	};
+
+	/**
+ * frames to pixels - 
+ * @param frames - array to sum. This is so that we can easily use with trims
+ * @param fpp - current frames per pixel value
+ */
+	const framesToPixels = (frames, fpp) => {
+		const totalFrames = frames.reduce((prev, current) => prev + current);
+		return Math.round(totalFrames / fpp);
+	};
+
+	const pixelsToFrames = (pixels, fpp) => {
+		return Math.round(pixels * fpp);
+	};
+
+	const setCoreTrims = (clipTrims, fileId, clipId, position, trackId) => {
+		//clipTrims[0] -= 12000 //everything is a little off lol 
+		//clipTrims = clipTrims.map(ct => ct * 1);
+		AudioCore.awp.port.postMessage({
+			trims: {
+				fileId,
+				clipId,
+				trackId,
+				meta: [position * get_store_value(framesPerPixel), clipTrims[0], clipTrims[1]]
+			}
+		});
+	};
+
+	const updateTrims = (pixelChange, side, clipTrims, lineTrims, lineData) => {
+		// console.log(pixelChange)
+		// if (pixelChange !== 0){
+		//     pixelChange = 1;
+		//     console.log(pixelChange)
+		// }    
+		if (side === 'left') {
+			let lNewClipTrim = clipTrims[0] + pixelsToFrames(pixelChange, get_store_value(framesPerPixel));
+			if (lNewClipTrim < 0) return;
+			clipTrims[0] = lNewClipTrim;
+			$$invalidate(5, start += pixelChange);
+			let lNewLineTrim = lineTrims[0] + pixelsToLinePoints(pixelChange, get_store_value(framesPerPixel), lineData);
+			if (lNewLineTrim < 0) return;
+			lineTrims[0] = lNewLineTrim;
+			$$invalidate(4, _vbShift = String(Number(lineTrims[0]))); //Need to move the viewbox a commesurate amount
+		} else //for actual trimming pixel change will be negative
+		if (side === 'right') {
+			pixelChange *= -1;
+			let rNewClipTrim = clipTrims[1] + pixelsToFrames(pixelChange, get_store_value(framesPerPixel));
+			if (rNewClipTrim < 0) return;
+			clipTrims[1] = rNewClipTrim;
+			let rNewLineTrim = lineTrims[1] + pixelsToLinePoints(pixelChange, get_store_value(framesPerPixel), lineData);
+			if (rNewLineTrim < 0) return;
+			lineTrims[1] = rNewLineTrim;
+		}
+
+		updateClipWidth(clipTrims, lineData, get_store_value(framesPerPixel));
+		updateWaveform(lineTrims, lineData);
+		$$invalidate(5, start = updatePosition(0, start)); //pixelChange is 0 here since this is the first call
+		setCoreTrims(clipTrims, fileId, clipId, start, trackId);
+	};
+
+	const clearCore = (fileId, clipId) => {
+		AudioCore.awp.port.postMessage({ clear: { fileId, clipId } });
+	};
+
+	onMount(async () => {
+		if (fileId !== null) {
+			clipId = uuidv4();
+			lineData = await AudioCore.getWaveform(fileId); //get waveform from back end
+			console.log(lineData);
+			$$invalidate(3, _vbHeight = String(lineData.height)); //an arbitrary nmber of pixels since height is scaled to conatiner box. Higher values create lighter looking lines
+			$$invalidate(2, _vbLength = String(lineData.points.length)); //this is really already in pixel space because each point increments by one pixel (its 1px per 'density' number of samples)
+			framesToPixels([lineData.sampleLength / lineData.channels], get_store_value(framesPerPixel));
+			let lineTrims = clipTrimsToLineTrims(clipTrims, lineData);
+			updateTrims(0, 'left', clipTrims, lineTrims, lineData);
+			updateTrims(0, 'right', clipTrims, lineTrims, lineData);
+
+			//* MOUSE *//
+			window.addEventListener('mousedown', e => {
+				
+			}); //reset any highlights
+			// _mask.style.setProperty('--opacity', 0);
+			// _mask.style.setProperty('--position', String(hlStart) + 'px');
+			// _mask.style.setProperty('--width', '0px');
+
+			// hlStart = 0;
+			// hlEnd = 0;
+			window.addEventListener('keydown', e => {
+				if (e.key === 'Backspace' && Math.abs(hlStart - hlEnd) > 0) {
+					const rOffset = Number(window.getComputedStyle(_clip).getPropertyValue('--width').split('px')[0]) - hlStart;
+
+					const lClipTrims = [
+						clipTrims[0],
+						clipTrims[1] + pixelsToFrames(rOffset, get_store_value(framesPerPixel))
+					];
+
+					const lOffset = hlStart + (hlEnd - hlStart);
+
+					[
+						clipTrims[0] + pixelsToFrames(lOffset, get_store_value(framesPerPixel)),
+						clipTrims[1]
+					];
+
+					parent.removeChild(_clip);
+
+					new Clip_1({
+							target: parent,
+							props: {
+								start,
+								clipTrims: lClipTrims,
+								fileId,
+								parent
+							}
+						});
+
+					// new Clip({
+					//     target: parent,
+					//     props: {
+					//         start: start + lOffset,
+					//         clipTrims: rClipTrims,
+					//         fileId: fileId,
+					//         parent: parent
+					//     }
+					// })
+					unsub(); //unsubs from the fpp store
+
+					clearCore(fileId, clipId);
+				}
+			});
+
+			//reset flags here since we may be outside of the clip
+			window.addEventListener('mouseup', e => {
+				mouseDown = false;
+				isTrimming = false;
+				isMoving = false;
+				isHighlighting = false; //the highlight may still be visible, but it is no longer changing
+			}); // hlStart = 0;
+			// hlEnd = 0;
+
+			_clip.addEventListener('mouseenter', e => {
+				mouse = true;
+			});
+
+			_clip.addEventListener('mouseleave', e => {
+				mouse = false;
+			});
+
+			_clip.addEventListener('mousedown', e => mouseDown = true);
+
+			_clip.addEventListener('mouseup', e => {
+				//isTrimming isMoving etc are reset on the window version of this event listener
+				if (mouse) setVerticalPointers(e);
+			});
+
+			_clip.addEventListener('mousemove', e => {
+				if (isHighlighting) ; else if (isMoving) {
+					$$invalidate(5, start = updatePosition(e.movementX, start)); //highlightHandler(e);
+					setCoreTrims(clipTrims, fileId, clipId, start, trackId);
+				} else if (isTrimming) {
+					_clip.style.setProperty('--cursor', 'ew-resize');
+					e.offsetX < _clip.offsetWidth * 0.05 && updateTrims(e.movementX, 'left', clipTrims, lineTrims, lineData);
+					e.offsetX > _clip.offsetWidth * 0.95 && updateTrims(e.movementX, 'right', clipTrims, lineTrims, lineData);
+				} else if (e.offsetX < _clip.offsetWidth * 0.05 || e.offsetX > _clip.offsetWidth * 0.95) {
+					if (e.srcElement.id != '-mask') {
+						//make sure we are referencing the clip
+						_clip.style.setProperty('--cursor', 'ew-resize');
+
+						if (mouseDown) isTrimming = true;
+					}
+				} else {
+					let type = setVerticalPointers(e);
+
+					if (mouseDown) {
+						if (type === 'grab') isMoving = true; else if (type === 'text') isHighlighting = true;
+					}
+				}
+			});
+		} else console.error('No Audio Associated With This Clip');
+	});
+
+	function div1_binding($$value) {
+		binding_callbacks[$$value ? 'unshift' : 'push'](() => {
+			_clip = $$value;
+			$$invalidate(0, _clip);
+		});
+	}
+
+	$$self.$$set = $$props => {
+		if ('parent' in $$props) $$invalidate(6, parent = $$props.parent);
+		if ('fileId' in $$props) $$invalidate(7, fileId = $$props.fileId);
+		if ('trackId' in $$props) $$invalidate(8, trackId = $$props.trackId);
+		if ('start' in $$props) $$invalidate(5, start = $$props.start);
+		if ('clipTrims' in $$props) $$invalidate(9, clipTrims = $$props.clipTrims);
+	};
+
+	return [
+		_clip,
+		_points,
+		_vbLength,
+		_vbHeight,
+		_vbShift,
+		start,
+		parent,
+		fileId,
+		trackId,
+		clipTrims,
+		div1_binding
+	];
+}
+
+class Clip_1 extends SvelteComponent {
+	constructor(options) {
+		super();
+
+		init(
+			this,
+			options,
+			instance$3,
+			create_fragment$4,
+			safe_not_equal,
+			{
+				parent: 6,
+				fileId: 7,
+				trackId: 8,
+				start: 5,
+				clipTrims: 9
+			},
+			null,
+			[-1, -1]
+		);
+	}
+}
+
+/* src/Track.svelte generated by Svelte v3.48.0 */
+
+function create_fragment$3(ctx) {
+	let div;
+
+	return {
+		c() {
+			div = element("div");
+			attr(div, "class", "trackRow track svelte-11xj7z8");
+		},
+		m(target, anchor) {
+			insert(target, div, anchor);
+			/*div_binding*/ ctx[4](div);
+		},
+		p: noop,
+		i: noop,
+		o: noop,
+		d(detaching) {
+			if (detaching) detach(div);
+			/*div_binding*/ ctx[4](null);
+		}
+	};
+}
+
+function instance$2($$self, $$props, $$invalidate) {
+	let { parent } = $$props;
+	let { fileId } = $$props;
+	let { trackId } = $$props;
+	let _this;
+
+	onMount(() => {
+		if (_this) {
+			_this.addEventListener('mouseenter', e => true);
+			_this.addEventListener('mouseleave', e => false);
+
+			new Clip_1({
+					target: _this,
+					props: {
+						start: 10,
+						clipTrims: [0, 0], //this means full width; //144000
+						fileId,
+						trackId,
+						parent: _this
+					}
+				});
+		}
+	});
+
+	function div_binding($$value) {
+		binding_callbacks[$$value ? 'unshift' : 'push'](() => {
+			_this = $$value;
+			$$invalidate(0, _this);
+		});
+	}
+
+	$$self.$$set = $$props => {
+		if ('parent' in $$props) $$invalidate(1, parent = $$props.parent);
+		if ('fileId' in $$props) $$invalidate(2, fileId = $$props.fileId);
+		if ('trackId' in $$props) $$invalidate(3, trackId = $$props.trackId);
+	};
+
+	return [_this, parent, fileId, trackId, div_binding];
+}
+
+class Track extends SvelteComponent {
+	constructor(options) {
+		super();
+		init(this, options, instance$2, create_fragment$3, safe_not_equal, { parent: 1, fileId: 2, trackId: 3 });
+	}
+}
+
 /* src/TrackArea.svelte generated by Svelte v3.48.0 */
 
 function create_fragment$2(ctx) {
@@ -471,7 +670,7 @@ function create_fragment$2(ctx) {
 		c() {
 			div = element("div");
 			attr(div, "id", "trackArea");
-			attr(div, "class", "svelte-tjx4i9");
+			attr(div, "class", "svelte-id4cvd");
 		},
 		m(target, anchor) {
 			insert(target, div, anchor);
@@ -486,6 +685,9 @@ function create_fragment$2(ctx) {
 		}
 	};
 }
+let _zoomStep = 5; // 0 to 30 --> as this gets higher polyline height should somehow get smaller
+let SR = 48000;
+let NUM_HOURS = 1;
 
 function instance$1($$self, $$props, $$invalidate) {
 	let { leftArea } = $$props;
@@ -497,26 +699,37 @@ function instance$1($$self, $$props, $$invalidate) {
 	//     await AudioCore.create();
 	// }
 	onMount(async () => {
+		//S E T    M A X    W I D T H //
+		let totalSamples = SR * 60 * 60 * NUM_HOURS;
+
+		AudioCore.totalSamples = totalSamples;
+		framesPerPixel.ease(_zoomStep);
+		let pixelWidth = String(Math.round(totalSamples / get_store_value(framesPerPixel)));
+		_this.style.setProperty('--trackArea-width', pixelWidth + 'px');
+		framesPerPixel.ease(_zoomStep);
 		await AudioCore.create();
 		let file = "test_1.wav";
-		var req = new XMLHttpRequest();
+		const req = new XMLHttpRequest();
 		req.open("GET", file, true);
 		req.responseType = "arraybuffer";
 		req.send();
 
 		req.onload = async e => {
 			const audioBuffer = req.response;
-			let fileId = await AudioCore.addFile(audioBuffer, file.split('.wav')[0]);
-			let lineData = await AudioCore.getWaveform(fileId);
-			console.log(lineData);
-		}; // if (fileId !== null) {
-		//     let trackId = uuidv4();
-		//     const track = new Track({
-		//         target: trackArea,
-	}); //         props: {
-	//             fileId: fileId,
-	//             trackId: trackId,
-	//             parent: trackArea,
+			const fileId = await AudioCore.addFile(audioBuffer, file.split('.wav')[0]);
+
+			if (fileId !== null) {
+				new Track({
+						target: trackArea,
+						props: {
+							fileId,
+							trackId: uuidv4(),
+							parent: trackArea
+						}
+					});
+			}
+		};
+	});
 
 	function div_binding($$value) {
 		binding_callbacks[$$value ? 'unshift' : 'push'](() => {

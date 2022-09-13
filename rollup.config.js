@@ -30,7 +30,7 @@ export default {
           }
         },
       
-        del({ targets: ['public/*', '!public/test_1.wav', '!public/index.html', '!public/styles.css']}),
+        del({ targets: ['public/*', '!public/test_1.wav', '!public/TRL_TRL_0128_01401_Wonder__a__APM.wav', '!public/index.html', '!public/styles.css']}),
 
         copy({
           targets: [

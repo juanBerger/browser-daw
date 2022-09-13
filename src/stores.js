@@ -22,7 +22,7 @@ function applyEasing (x) {
             let scaled = Math.round(scaler(eased, 0, 30, MIN_FPP, MAX_FPP))
             //scaled % CHANNELS === 0 ? scaled = scaled : scaled += scaled 
             scaled /= CHANNELS
-            //console.log('[CURRENT FPP]...', scaled)
+            console.log('[CURRENT FPP]...', scaled)
             set(scaled)
             
         },
