@@ -79,7 +79,6 @@ export const AudioCore = {
     async create() {
 
         this.audioContext = new AudioContext({latencyHint: 0, sampleRate: 48000});
-        console.log(this.audioContext.audioWorklet)
         await this.audioContext.audioWorklet.addModule(awpURL)
         this.awp = new AudioWorkletNode(this.audioContext, 'awp', {numberOfInputs: [1], numberOfOutputs: [1], outputChannelCount: [2]});
         this.awp.connect(this.audioContext.destination);

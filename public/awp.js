@@ -1,5 +1,4 @@
 
-import { check_outros } from 'svelte/internal';
 import { v5 as uuidv5 } from 'uuid';
 
 class AWP extends AudioWorkletProcessor {

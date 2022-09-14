@@ -1,18 +1,23 @@
 import './styles.css'
-import TrackArea from './TrackArea.svelte'
-import LeftArea from  './LeftArea.svelte'
-import Header from './Header.svelte'
+import App from './App.svelte'
 
-import {convolve} from './audio-utils.js'
-
-
-window.onload = e => {
-
-    const app = document.getElementById('app')
-    const leftArea = new LeftArea({target: app})
-    const trackArea = new TrackArea({ target: app})
-    const header = new Header({target: app})
+window.onload = e => {  
+    const app = new App({target: document.getElementById('root')})
+    
+    // const leftArea = new LeftArea({target: app})
+    // const trackArea = new TrackArea({ target: app})
+    // const header = new Header({target: app})
 }
+
+
+
+
+
+
+
+
+
+
 
 
 

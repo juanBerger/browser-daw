@@ -1,6 +1,5 @@
 import { writable } from 'svelte/store'
 import { scaler } from './utils.js'
-
 import { AudioCore } from './audio-utils.js'
 
 const MIN_FPP = 25; 
@@ -31,9 +30,17 @@ function applyEasing (x) {
 }
 
 export const framesPerPixel = applyEasing();
-
-export const currentFrame = writable(0);
+export const currentFrame = writable(0); //Not sure we need this
 export const isPlaying = writable(false);
+export const userEvents = writable([]);
+
+//dont need this cause I have the dom?
+export const tcState = writable({
+    nextId: 0,
+    tracks: {} //{trackId: []}
+});
+
+
 
 const unsub = currentFrame.subscribe(frame => {
     if (AudioCore.awp){

@@ -14,7 +14,7 @@ const externalWatchFiles = [
 ]
 
 export default {
-    input: 'src/app.js',
+    input: 'src/root.js',
     output: {
       dir: 'public',
       sourcemap: true,

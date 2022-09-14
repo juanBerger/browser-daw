@@ -1,53 +1,67 @@
 <script>
 
-import { onMount } from 'svelte';
-import Clip from './Clip.svelte'
+    import { userEvents } from './stores.js'
+    import { onDestroy, onMount } from 'svelte';
+    import Clip from './Clip.svelte'
 
-export let parent;
-export let fileId;
-export let trackId;
-
-let _this;
-let _mouse = false;
-const _clips = [];
-
-onMount(() => {
+    export let trackId;
+    let track;
     
-    if(_this){
+    const ueUnsub = userEvents.subscribe(async ue => { 
 
-        _this.addEventListener('mouseenter', (e) => _mouse = true)
-        _this.addEventListener('mouseleave', (e) => _mouse = false)
-        
-        const clip = new Clip({
-            target: _this,
-            props: {
-                start: 10,
-                clipTrims: [0, 0], //this means full width; //144000
-                fileId: fileId,
-                trackId: trackId,
-                parent: _this,
+        for (const [i, event] of ue.entries()){
+            
+            if (event.type === 'addClips' && event.trackId === trackId){
+                
+                //event.clips: [{fileId: fileId, start: 0, trims: [0, 0]}, ]
+                for (const clip of event.clips){
+                    
+                    const c = new Clip({
+                        target: track,
+                        props: {
+                            fileId: clip.fileId,
+                            start: clip.start,
+                            clipTrims: clip.trims,
+                            trackId: trackId
+                        }
+                    })
+                }
+            
+                popUserEvent(i);
+            
             }
-        })
 
-        _clips.push(clip)
+        }
+    })
+
+
+    function popUserEvent(i){
+        userEvents.update(e => {
+            e.splice(i, 1);
+            return e
+        })
     }
-})
+
+    onMount(() => {
+        console.log('Track On Load')
+
+    })
+
+    onDestroy(() => {
+        ueUnsub();
+    })
 
 </script>
 
-<div bind:this={_this} class='trackRow track'></div>
-
+<div bind:this={track} class='trackRow track'></div>
 
 
 <style>
 
-
-.trackRow.track {
-    /* height: 10%; */
-    display: flex;
-    border-bottom: 1px solid rgba(249, 206, 201, 0.373);
-
-}
+    .trackRow.track {
+        display: flex;
+        border-bottom: 1px solid rgba(249, 206, 201, 0.373);
+    }
 
 </style>
 
