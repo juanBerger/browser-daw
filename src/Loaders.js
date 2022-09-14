@@ -6,7 +6,8 @@ export const Loaders = {
     auto() {
 
         const files = [
-            "test_1.wav"
+            "test_1.wav",
+            // "TRL_TRL_0128_01401_Wonder__a__APM.wav"
         ]
 
         for (const file of files){
@@ -17,7 +18,7 @@ export const Loaders = {
             req.send();
             req.onload = async e => {
                 const audioBuffer = req.response;
-                _this._parseResponse(audioBuffer, file);
+                this._parseResponse(audioBuffer, file);
             }
 
         }
@@ -30,10 +31,11 @@ export const Loaders = {
             startIn: 'desktop'}) 
         const file = await handle.getFile();
         const audioBuffer = await file.arrayBuffer();
-        _this._parseResponse(audioBuffer, file);
+        this._parseResponse(audioBuffer, file);
         
     },
 
+    //This defines how we react to each new audioBuffer
     async _parseResponse(audioBuffer, file){
         const fileId = await AudioCore.addFile(audioBuffer, file.split('.wav')[0]);
         userEvents.update(ue => {

@@ -1,12 +1,8 @@
 import './styles.css'
 import App from './App.svelte'
 
-window.onload = e => {  
+window.onload = () => {  
     const app = new App({target: document.getElementById('root')})
-    
-    // const leftArea = new LeftArea({target: app})
-    // const trackArea = new TrackArea({ target: app})
-    // const header = new Header({target: app})
 }
 
 

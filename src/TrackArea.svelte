@@ -15,7 +15,7 @@
     let zoomStep = 10; // 0 to 30 --> as this gets higher polyline height should somehow get smaller
     let playheadHeight = 0;
 
-    const tracks = [];
+    const tracks = []; //this component is in charge of assigning track ids. It reuses indeces from this array
     const SR = 48000;
     const NUM_HOURS = 1;
 
@@ -35,12 +35,14 @@
                 popUserEvent(i);
                 
                 if (event.clips){
-                    userEvents.update(e => {
-                        e.push({type: 'addClips', trackId: tracks.length, clips: event.clips})
-                        return e
+                    userEvents.update(ue => {
+                        event.clips.map(clip => clip.trackId = tracks.length);
+                        ue.push({type: 'addClips', clips: event.clips});
+                        return ue
                     })
                 }
 
+                console.log('Pushed Add Clip Event')
                 tracks.push(track)
             }
         }
