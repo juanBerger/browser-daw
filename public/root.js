@@ -363,6 +363,13 @@ const scaler = (value, oldMin, oldMax, newMin, newMax) => {
     return (newMax - newMin) * (value - oldMin) / (oldMax - oldMin) + newMin
 };
 
+//http://www.topherlee.com/software/pcm-tut-wavformat.htmlx
+
+function uuidv4() {
+    return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => 
+        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+}
+
 var awpURL = "awp-23b770a4.js";
 
 const AudioCore = {
@@ -564,18 +571,14 @@ function create_fragment$5(ctx) {
 }
 
 function instance$4($$self, $$props, $$invalidate) {
-	let { parent } = $$props;
 	let { fileId } = $$props;
-	let { trackId } = $$props;
 	let { start } = $$props;
 	let { clipTrims } = $$props;
-
-	//exposed in markup
-	let clipId;
-
+	let { trackId } = $$props;
+	let { clipId } = $$props;
 	let lineData;
 	let clip;
-	let _mask;
+	let mask;
 	let _points = '';
 	let vbLength = 0; //the polyline creates a new point at each pixel
 	let vbHeight = 0;
@@ -629,11 +632,11 @@ function instance$4($$self, $$props, $$invalidate) {
 
 	const highlightHandler = e => {
 		if (firstHighlight) {
-			_mask.style.setProperty('--opacity', 0.3);
+			mask.style.setProperty('--opacity', 0.3);
 			firstHighlight = false;
 			hlStart = e.offsetX;
 			hlEnd = hlStart;
-			_mask.style.setProperty('--position', String(hlStart) + 'px');
+			mask.style.setProperty('--position', String(hlStart) + 'px');
 			return;
 		}
 
@@ -641,10 +644,10 @@ function instance$4($$self, $$props, $$invalidate) {
 		let delta = Math.abs(hlEnd - hlStart);
 
 		if (hlEnd < hlStart) {
-			_mask.style.setProperty('--position', String(hlStart - delta) + 'px');
+			mask.style.setProperty('--position', String(hlStart - delta) + 'px');
 		}
 
-		_mask.style.setProperty('--width', String(delta) + 'px');
+		mask.style.setProperty('--width', String(delta) + 'px');
 	};
 
 	/**
@@ -717,11 +720,17 @@ function instance$4($$self, $$props, $$invalidate) {
 			let lNewClipTrim = clipTrims[0] + pixelsToFrames(pixelChange, get_store_value(framesPerPixel));
 			if (lNewClipTrim < 0) return;
 			clipTrims[0] = lNewClipTrim;
-			$$invalidate(6, start += pixelChange);
+
+			//start += pixelChange;
 			let lNewLineTrim = lineTrims[0] + pixelsToLinePoints(pixelChange, get_store_value(framesPerPixel), lineData);
+
 			if (lNewLineTrim < 0) return;
 			lineTrims[0] = lNewLineTrim;
-			$$invalidate(5, vbShift = String(Number(lineTrims[0]))); //Need to move the viewbox a commesurate amount
+
+			//Trimming from left requires shifting clips to the right (since length itself can only be changed from the right)
+			$$invalidate(6, start = updatePosition(pixelChange, start)); //this a
+
+			$$invalidate(5, vbShift = String(Number(lineTrims[0])));
 		} else //for actual trimming pixel change will be negative
 		if (side === 'right') {
 			pixelChange *= -1;
@@ -751,15 +760,14 @@ function instance$4($$self, $$props, $$invalidate) {
 			let lineTrims = clipTrimsToLineTrims(clipTrims, lineData);
 			updateTrims(0, 'left', clipTrims, lineTrims, lineData);
 			updateTrims(0, 'right', clipTrims, lineTrims, lineData);
-			$$invalidate(6, start = updatePosition(0, start));
 
 			//* MOUSE *//
 			window.addEventListener('mousedown', e => {
 				//reset any highlights
-				_mask.style.setProperty('--opacity', 0);
+				mask.style.setProperty('--opacity', 0);
 
-				_mask.style.setProperty('--position', String(hlStart) + 'px');
-				_mask.style.setProperty('--width', '0px');
+				mask.style.setProperty('--position', String(hlStart) + 'px');
+				mask.style.setProperty('--width', '0px');
 				hlStart = 0;
 				hlEnd = 0;
 			});
@@ -774,6 +782,7 @@ function instance$4($$self, $$props, $$invalidate) {
 					const rightStart = start + hlEnd;
 					clearCore(fileId, clipId); //remove from back end
 					unsub();
+					console.log(trackId);
 
 					userEvents.update(ue => {
 						//ue.push({type: 'addClips', clips: [{trackId: trackId, fileId: fileId, start: leftStart, trims: leftTrims}, ]})
@@ -875,8 +884,8 @@ function instance$4($$self, $$props, $$invalidate) {
 
 	function div0_binding($$value) {
 		binding_callbacks[$$value ? 'unshift' : 'push'](() => {
-			_mask = $$value;
-			$$invalidate(1, _mask);
+			mask = $$value;
+			$$invalidate(1, mask);
 		});
 	}
 
@@ -888,25 +897,25 @@ function instance$4($$self, $$props, $$invalidate) {
 	}
 
 	$$self.$$set = $$props => {
-		if ('parent' in $$props) $$invalidate(7, parent = $$props.parent);
-		if ('fileId' in $$props) $$invalidate(8, fileId = $$props.fileId);
-		if ('trackId' in $$props) $$invalidate(9, trackId = $$props.trackId);
+		if ('fileId' in $$props) $$invalidate(7, fileId = $$props.fileId);
 		if ('start' in $$props) $$invalidate(6, start = $$props.start);
-		if ('clipTrims' in $$props) $$invalidate(10, clipTrims = $$props.clipTrims);
+		if ('clipTrims' in $$props) $$invalidate(8, clipTrims = $$props.clipTrims);
+		if ('trackId' in $$props) $$invalidate(9, trackId = $$props.trackId);
+		if ('clipId' in $$props) $$invalidate(10, clipId = $$props.clipId);
 	};
 
 	return [
 		clip,
-		_mask,
+		mask,
 		_points,
 		vbLength,
 		vbHeight,
 		vbShift,
 		start,
-		parent,
 		fileId,
-		trackId,
 		clipTrims,
+		trackId,
+		clipId,
 		div0_binding,
 		div2_binding
 	];
@@ -923,11 +932,11 @@ class Clip extends SvelteComponent {
 			create_fragment$5,
 			safe_not_equal,
 			{
-				parent: 7,
-				fileId: 8,
-				trackId: 9,
+				fileId: 7,
 				start: 6,
-				clipTrims: 10
+				clipTrims: 8,
+				trackId: 9,
+				clipId: 10
 			},
 			null,
 			[-1, -1]
@@ -962,8 +971,8 @@ function create_fragment$4(ctx) {
 function instance$3($$self, $$props, $$invalidate) {
 	let { trackId } = $$props;
 	let track;
-	const clips = [];
 
+	//const clips = [];
 	const ueUnsub = userEvents.subscribe(async ue => {
 		for (const [i, event] of ue.entries()) {
 			if (event.type === 'addClips' || event.type === 'rmClips') {
@@ -978,17 +987,17 @@ function instance$3($$self, $$props, $$invalidate) {
 		for (const clip of targetClips) {
 			switch (type) {
 				case 'addClips':
-					const newClip = new Clip({
+					new Clip({
 							target: track,
 							props: {
 								fileId: clip.fileId,
 								start: clip.start,
 								clipTrims: clip.trims,
 								trackId,
-								clipId: clips.length
+								clipId: uuidv4()
 							}
 						});
-					clips.push(newClip);
+					//clips.push(newClip)
 					break;
 				case 'rmClips':
 					const rmClip = document.getElementById(clip.clipId);
@@ -1231,7 +1240,7 @@ const Loaders = {
 
         const files = [
             "test_1.wav",
-            // "TRL_TRL_0128_01401_Wonder__a__APM.wav"
+            "TRL_TRL_0128_01401_Wonder__a__APM.wav"
         ];
 
         for (const file of files){

@@ -7,7 +7,7 @@ export const Loaders = {
 
         const files = [
             "test_1.wav",
-            // "TRL_TRL_0128_01401_Wonder__a__APM.wav"
+            "TRL_TRL_0128_01401_Wonder__a__APM.wav"
         ]
 
         for (const file of files){

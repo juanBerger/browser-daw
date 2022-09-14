@@ -1,27 +1,23 @@
 
 <script>
 
-    import { onMount, tick, afterUpdate, createEventDispatcher } from 'svelte';
+    import { onMount, tick, afterUpdate } from 'svelte';
 
     import { get } from 'svelte/store';
     import {framesPerPixel, userEvents} from './stores';
 
-    import { uuidv4 } from './utils.js';
-    // import Clip from './Clip.svelte'
-
     import { AudioCore } from './audio-utils.js'
 
-    export let parent; //track div
     export let fileId; //what is the backing audio file id
-    export let trackId; //this gets added to the metas
     export let start; //start position on the timeline in pixels
     export let clipTrims; //left and right trims in frames
+    export let trackId; //this gets added to the metas
+    export let clipId;
 
-    //exposed in markup
-    let clipId;
+
     let lineData;
     let clip;
-    let _mask;
+    let mask;
     let _points = '';
     let vbLength = 0; //the polyline creates a new point at each pixel
     let vbHeight = 0;
@@ -84,21 +80,21 @@
     const highlightHandler = e => {
         
         if (firstHighlight){
-            _mask.style.setProperty('--opacity', 0.3)
+            mask.style.setProperty('--opacity', 0.3)
             firstHighlight = false;
             hlStart = e.offsetX
             hlEnd = hlStart
-            _mask.style.setProperty('--position', String(hlStart) + 'px')
+            mask.style.setProperty('--position', String(hlStart) + 'px')
             return
         }
         
         hlEnd += e.movementX
         let delta = Math.abs(hlEnd - hlStart)
         if (hlEnd < hlStart){
-            _mask.style.setProperty('--position', String(hlStart - delta) + 'px')
+            mask.style.setProperty('--position', String(hlStart - delta) + 'px')
         }
 
-        _mask.style.setProperty('--width', String(delta) + 'px')
+        mask.style.setProperty('--width', String(delta) + 'px')
     }
 
     /**
@@ -171,12 +167,15 @@
             let lNewClipTrim = clipTrims[0] + pixelsToFrames(pixelChange, get(framesPerPixel));
             if (lNewClipTrim < 0) return;
             clipTrims[0] = lNewClipTrim;
-            start += pixelChange;
+            //start += pixelChange;
             
             let lNewLineTrim = lineTrims[0] + pixelsToLinePoints(pixelChange, get(framesPerPixel), lineData);
             if (lNewLineTrim < 0) return;
             lineTrims[0] = lNewLineTrim
-            vbShift = String(Number(lineTrims[0]));  //Need to move the viewbox a commesurate amount
+            
+            //Trimming from left requires shifting clips to the right (since length itself can only be changed from the right)
+            start = updatePosition(pixelChange, start); //this a
+            vbShift = String(Number(lineTrims[0]));  
         }
         
         //for actual trimming pixel change will be negative
@@ -193,6 +192,7 @@
 
         updateClipWidth(clipTrims, lineData, get(framesPerPixel));
         updateWaveform(lineTrims, lineData);
+        
         setCoreTrims(clipTrims, fileId, clipId, start, trackId); 
 
     }
@@ -218,14 +218,13 @@
             let lineTrims = clipTrimsToLineTrims(clipTrims, lineData);
             updateTrims(0, 'left', clipTrims, lineTrims, lineData);
             updateTrims(0, 'right', clipTrims, lineTrims, lineData);
-            start = updatePosition(0, start);
                 
             //* MOUSE *//
             window.addEventListener('mousedown', e => {
                 //reset any highlights
-                _mask.style.setProperty('--opacity', 0);
-                _mask.style.setProperty('--position', String(hlStart) + 'px');
-                _mask.style.setProperty('--width', '0px');
+                mask.style.setProperty('--opacity', 0);
+                mask.style.setProperty('--position', String(hlStart) + 'px');
+                mask.style.setProperty('--width', '0px');
                 hlStart = 0;
                 hlEnd = 0;
 
@@ -248,6 +247,8 @@
 
                     clearCore(fileId, clipId); //remove from back end
                     unsub();
+
+                    console.log(trackId)
 
                     userEvents.update(ue => {
                         //ue.push({type: 'addClips', clips: [{trackId: trackId, fileId: fileId, start: leftStart, trims: leftTrims}, ]})
@@ -335,7 +336,7 @@
 </script>
 
 <div bind:this={clip} class='clip'>
-    <div bind:this={_mask} class='mask' id='-mask'></div>
+    <div bind:this={mask} class='mask' id='-mask'></div>
     <div class="line">
         <svg xmlns="http://www.w3.org/2000/svg" height="100%" width="100%" preserveAspectRatio="none" stroke-width='2' viewBox='{vbShift} 0 {vbLength} {vbHeight}'>
            <polyline stroke='white' points={_points} fill='none'/>

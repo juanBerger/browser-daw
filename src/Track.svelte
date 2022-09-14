@@ -6,9 +6,11 @@
     import { userEvents } from './stores.js'
     import Clip from './Clip.svelte'
 
+    import { uuidv4 } from './utils.js';
+
     export let trackId;
     let track;
-    const clips = [];
+    //const clips = [];
     
     const ueUnsub = userEvents.subscribe(async ue => { 
 
@@ -34,10 +36,10 @@
                         start: clip.start,
                         clipTrims: clip.trims,
                         trackId: trackId,
-                        clipId: clips.length
+                        clipId: uuidv4()
                     }})
 
-                    clips.push(newClip)
+                    //clips.push(newClip)
                     break;
                 
                 case 'rmClips':
