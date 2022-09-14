@@ -10,7 +10,6 @@
 
     export let trackId;
     let track;
-    //const clips = [];
     
     const ueUnsub = userEvents.subscribe(async ue => { 
 
@@ -39,7 +38,6 @@
                         clipId: uuidv4()
                     }})
 
-                    //clips.push(newClip)
                     break;
                 
                 case 'rmClips':

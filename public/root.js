@@ -495,6 +495,7 @@ const framesPerPixel = applyEasing();
 const currentFrame = writable(0); //Not sure we need this
 
 const userEvents = writable([]); //{type: x, <type specific props>}
+const lineDataStore = writable({});
 
 
 
@@ -751,10 +752,10 @@ function instance$4($$self, $$props, $$invalidate) {
 		AudioCore.awp.port.postMessage({ clear: { fileId, clipId } });
 	};
 
-	onMount(async () => {
+	onMount(() => {
 		if (fileId !== null) {
 			$$invalidate(0, clip.id = clipId, clip); //tag the DOM element with our passed in ID
-			lineData = await AudioCore.getWaveform(fileId); //get waveform from back end
+			lineData = get_store_value(lineDataStore)[fileId];
 			$$invalidate(4, vbHeight = String(lineData.height)); //an arbitrary nmber of pixels since height is scaled to conatiner box. Higher values create lighter looking lines
 			$$invalidate(3, vbLength = String(lineData.points.length)); //this is really already in pixel space because each point increments by one pixel (its 1px per 'density' number of samples)
 			let lineTrims = clipTrimsToLineTrims(clipTrims, lineData);
@@ -772,7 +773,7 @@ function instance$4($$self, $$props, $$invalidate) {
 				hlEnd = 0;
 			});
 
-			window.addEventListener('keydown', async e => {
+			window.addEventListener('keydown', e => {
 				if (e.key === 'Backspace' && Math.abs(hlStart - hlEnd) > 0) {
 					const clipLength = Number(window.getComputedStyle(clip).getPropertyValue('--width').split('px')[0]);
 					const fpp = get_store_value(framesPerPixel);
@@ -780,12 +781,22 @@ function instance$4($$self, $$props, $$invalidate) {
 					const leftStart = start;
 					const rightTrims = [clipTrims[0] + pixelsToFrames(hlEnd, fpp), clipTrims[1]];
 					const rightStart = start + hlEnd;
-					clearCore(fileId, clipId); //remove from back end
+					clearCore(fileId, clipId);
 					unsub();
-					console.log(trackId);
 
 					userEvents.update(ue => {
-						//ue.push({type: 'addClips', clips: [{trackId: trackId, fileId: fileId, start: leftStart, trims: leftTrims}, ]})
+						ue.push({
+							type: 'addClips',
+							clips: [
+								{
+									trackId,
+									fileId,
+									start: leftStart,
+									trims: leftTrims
+								}
+							]
+						});
+
 						ue.push({
 							type: 'addClips',
 							clips: [
@@ -805,27 +816,6 @@ function instance$4($$self, $$props, $$invalidate) {
 
 						return ue;
 					});
-
-					const addNewClips = () => {
-						userEvents.update(ue => {
-							ue.push({
-								type: 'addClips',
-								clips: [
-									{
-										trackId,
-										fileId,
-										start: leftStart,
-										trims: leftTrims
-									}
-								]
-							});
-
-							//ue.push({type: 'addClips', clips: [{trackId: trackId, fileId: fileId, start: rightStart, trims: rightTrims}, ]})
-							return ue;
-						});
-					};
-
-					setTimeout(addNewClips, 3);
 				}
 			});
 
@@ -972,7 +962,6 @@ function instance$3($$self, $$props, $$invalidate) {
 	let { trackId } = $$props;
 	let track;
 
-	//const clips = [];
 	const ueUnsub = userEvents.subscribe(async ue => {
 		for (const [i, event] of ue.entries()) {
 			if (event.type === 'addClips' || event.type === 'rmClips') {
@@ -997,7 +986,6 @@ function instance$3($$self, $$props, $$invalidate) {
 								clipId: uuidv4()
 							}
 						});
-					//clips.push(newClip)
 					break;
 				case 'rmClips':
 					const rmClip = document.getElementById(clip.clipId);
@@ -1270,7 +1258,16 @@ const Loaders = {
 
     //This defines how we react to each new audioBuffer
     async _parseResponse(audioBuffer, file){
+        
         const fileId = await AudioCore.addFile(audioBuffer, file.split('.wav')[0]);
+        const lineData = await AudioCore.getWaveform(fileId); 
+        
+        //we need to keep a copy of this on the ui thread so that creating new clips is not async
+        lineDataStore.update(lds => {
+            lds[fileId] = lineData;
+            return lds
+        });
+
         userEvents.update(ue => {
             ue.push({type: 'addTrack', clips: [{fileId: fileId, start: 0, trims: [0, 0]}, ]});
             return ue

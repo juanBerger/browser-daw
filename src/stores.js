@@ -36,12 +36,7 @@ export const currentFrame = writable(0); //Not sure we need this
 export const isPlaying = writable(false);
 
 export const userEvents = writable([]); //{type: x, <type specific props>}
-
-//dont need this cause I have the dom?
-export const tcState = writable({
-    nextId: 0,
-    tracks: {} //{trackId: []}
-});
+export const lineDataStore = writable({});
 
 
 

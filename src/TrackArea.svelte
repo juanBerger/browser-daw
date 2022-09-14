@@ -5,8 +5,6 @@
 
     import { framesPerPixel, userEvents } from './stores.js'
 
-    import { uuidv4 } from './utils.js';
-
     import Track from './Track.svelte'
     import Meter from './Meter.svelte'
     import Playhead from './Playhead.svelte'

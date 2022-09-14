@@ -4,7 +4,7 @@
     import { onMount, tick, afterUpdate } from 'svelte';
 
     import { get } from 'svelte/store';
-    import {framesPerPixel, userEvents} from './stores';
+    import {framesPerPixel, userEvents, lineDataStore} from './stores';
 
     import { AudioCore } from './audio-utils.js'
 
@@ -205,13 +205,14 @@
     
 
 
-    onMount(async () => {
+    onMount(() => {
         
         if (fileId !== null){
             
             clip.id = clipId; //tag the DOM element with our passed in ID
-            lineData = await AudioCore.getWaveform(fileId); //get waveform from back end
-
+            
+            lineData = get(lineDataStore)[fileId]
+            
             vbHeight = String(lineData.height); //an arbitrary nmber of pixels since height is scaled to conatiner box. Higher values create lighter looking lines
             vbLength = String(lineData.points.length); //this is really already in pixel space because each point increments by one pixel (its 1px per 'density' number of samples)
 
@@ -231,7 +232,7 @@
             })
 
 
-            window.addEventListener('keydown', async e => {
+            window.addEventListener('keydown', e => {
                 
                 if(e.key === 'Backspace' && (Math.abs(hlStart - hlEnd) > 0)){
 
@@ -245,29 +246,15 @@
                     const rightTrims = [clipTrims[0] + pixelsToFrames(hlEnd, fpp), clipTrims[1]]
                     const rightStart = start + hlEnd;
 
-                    clearCore(fileId, clipId); //remove from back end
+                    clearCore(fileId, clipId);
                     unsub();
 
-                    console.log(trackId)
-
                     userEvents.update(ue => {
-                        //ue.push({type: 'addClips', clips: [{trackId: trackId, fileId: fileId, start: leftStart, trims: leftTrims}, ]})
+                        ue.push({type: 'addClips', clips: [{trackId: trackId, fileId: fileId, start: leftStart, trims: leftTrims}, ]})
                         ue.push({type: 'addClips', clips: [{trackId: trackId, fileId: fileId, start: rightStart, trims: rightTrims}, ]})
                         ue.push({type: "rmClips", clips: [{trackId: trackId, clipId: clipId}, ]})
                         return ue;
                     })
-
-                    const addNewClips = () => {
-                        userEvents.update(ue => {
-                            ue.push({type: 'addClips', clips: [{trackId: trackId, fileId: fileId, start: leftStart, trims: leftTrims}, ]})
-                            //ue.push({type: 'addClips', clips: [{trackId: trackId, fileId: fileId, start: rightStart, trims: rightTrims}, ]})
-                            return ue;
-                        })
-                    }
-
-
-                    setTimeout(addNewClips, 3)
-
 
                 }
             })
