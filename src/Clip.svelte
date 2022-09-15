@@ -14,16 +14,20 @@
     export let trackId; //this gets added to the metas
     export let clipId;
 
-
-    let lineData;
+    //* DOM Elements *//
     let clip;
     let mask;
-    let _points = '';
+    let line;
+    let ltrim;
+    let rtrim;
+    
+    //* DOM Attributes *//
+    let points = '';
+    let lineData;
     let vbLength = 0; //the polyline creates a new point at each pixel
     let vbHeight = 0;
     let vbShift = '0';
-    let _maxSvgWidth = 0;
-
+    // let _maxSvgWidth = 0;
 
     /* Mouse states */
     let mouse = null;
@@ -32,6 +36,9 @@
 
     /* Actions */
     let isTrimming = false;
+    let isTrimmingLeft = false;
+    let isTrimmingRight = false;
+
     let isMoving = false;
     let isHighlighting = false;
     let firstHighlight = true;
@@ -58,20 +65,183 @@
         !lastfpp ? lastfpp = fpp : zoom();
     });
 
+    onMount(() => {
+        
+        if (fileId !== null){
+            
+            clip.id = clipId; //tag the DOM element with our passed in ID
+            
+            lineData = get(lineDataStore)[fileId]
+            
+            vbHeight = String(lineData.height); //an arbitrary nmber of pixels since height is scaled to conatiner box. Higher values create lighter looking lines
+            vbLength = String(lineData.points.length); //this is really already in pixel space because each point increments by one pixel (its 1px per 'density' number of samples)
+
+            let lineTrims = clipTrimsToLineTrims(clipTrims, lineData);
+            updateTrims(0, 'left', clipTrims, lineTrims, lineData);
+            updateTrims(0, 'right', clipTrims, lineTrims, lineData);
+        
+            window.addEventListener('mousedown', e => {
+                
+                mouseDown = true
+
+                //reset any highlights
+                mask.style.setProperty('--opacity', 0);
+                mask.style.setProperty('--position', String(hlStart) + 'px');
+                mask.style.setProperty('--width', '0px');
+                hlStart = 0;
+                hlEnd = 0;
+
+            })
+
+
+            // window.addEventListener('mousemove', e => {
+                
+            //     if (isTrimmingLeft){
+            //         updateTrims(e.movementX, 'left', clipTrims, lineTrims, lineData);
+            //     }
+
+            //     else if (isTrimmingRight){
+            //         updateTrims(e.movementX, 'right', clipTrims, lineTrims, lineData);
+            //     }
+
+            //     //add is moving
+                
+            // })
+            
+        
+            ltrim.addEventListener('mousemove', (e) => {
+                clip.style.setProperty('--cursor', 'ew-resize');
+                if (mouseDown){
+                    isTrimmingLeft = true;
+                    updateTrims(e.movementX, 'left', clipTrims, lineTrims, lineData);
+                }
+                    
+
+            });
+
+            rtrim.addEventListener('mousemove', (e) => {
+                clip.style.setProperty('--cursor', 'ew-resize');
+                if (mouseDown){
+                    isTrimmingRight = true;
+                    updateTrims(e.movementX, 'right', clipTrims, lineTrims, lineData);
+                }
+                    
+
+            });
+
+            // clip.addEventListener('mousemove', (e) => {
+            //     if (isHighlighting) 
+            //         highlightHandler(e);
+
+
+            //     else if (isMoving){
+            //         start = updatePosition(e.movementX, start);
+            //         setCoreTrims(clipTrims, fileId, clipId, start, trackId);
+            //     }
+
+
+
+            //     else {
+            //         let type = setVerticalPointers(e);
+            //         if (mouseDown){
+            //             if (type === 'grab') isMoving = true;
+            //             else if (type === 'text') isHighlighting = true;
+            //         }
+            //     }
+
+            // })
+
+            //* MOUSE *//
+            
+            //reset flags here since we may be outside of the clip
+            window.addEventListener('mouseup', () => {
+                
+                mouseDown = false;
+                //isTrimming = false;
+                isTrimmingLeft = false;
+                isTrimmingRight = false;
+                isMoving = false;
+                isHighlighting = false; //the highlight may still be visible, but it is no longer changing
+                firstHighlight = true;
+            
+            })
+            
+            window.addEventListener('keydown', e => {
+                
+                if(e.key === 'Backspace' && (Math.abs(hlStart - hlEnd) > 0)){
+
+                    const clipLength = Number(window.getComputedStyle(clip).getPropertyValue('--width').split('px')[0])
+                    const fpp = get(framesPerPixel);
+                    
+                    const leftTrims = [clipTrims[0], clipTrims[1] + pixelsToFrames(clipLength - hlStart, fpp)]
+                    const leftStart = start;
+
+                    const rightTrims = [clipTrims[0] + pixelsToFrames(hlEnd, fpp), clipTrims[1]]
+                    const rightStart = start + hlEnd;
+
+                    clearCore(fileId, clipId);
+                    unsub();
+
+                    userEvents.update(ue => {
+                        ue.push({type: 'addClips', clips: [{trackId: trackId, fileId: fileId, start: leftStart, trims: leftTrims}, ]})
+                        ue.push({type: 'addClips', clips: [{trackId: trackId, fileId: fileId, start: rightStart, trims: rightTrims}, ]})
+                        ue.push({type: "rmClips", clips: [{trackId: trackId, clipId: clipId}, ]})
+                        return ue;
+                    })
+
+                }
+            })
+        
+        }
+        
+        else console.error('No Audio Associated With This Clip')
+    })
+
+
+    const updateTrims = (pixelChange, side, clipTrims, lineTrims, lineData) => {
+
+        if (side === 'left'){
+            let lNewClipTrim = clipTrims[0] + pixelsToFrames(pixelChange, get(framesPerPixel));
+            if (lNewClipTrim < 0) return;
+            clipTrims[0] = lNewClipTrim;
+            
+            let lNewLineTrim = lineTrims[0] + pixelsToLinePoints(pixelChange, get(framesPerPixel), lineData);
+            if (lNewLineTrim < 0) return;
+            lineTrims[0] = lNewLineTrim
+            
+            //Trimming from left requires shifting clips to the right (since length itself can only be changed from the right)
+            start = updatePosition(pixelChange, start); //this a
+            vbShift = String(Number(lineTrims[0]));  
+        }
+
+        else if (side === 'right'){
+            pixelChange *= -1;``
+            let rNewClipTrim = clipTrims[1] + pixelsToFrames(pixelChange, get(framesPerPixel));
+            if (rNewClipTrim < 0) return;
+            clipTrims[1] = rNewClipTrim
+            
+            let rNewLineTrim = lineTrims[1] + pixelsToLinePoints(pixelChange, get(framesPerPixel), lineData);
+            if (rNewLineTrim < 0) return;
+            lineTrims[1] = rNewLineTrim;
+        }
+
+        updateClipWidth(clipTrims, lineData, get(framesPerPixel));
+        updateWaveform(lineTrims, lineData);
+        setCoreTrims(clipTrims, fileId, clipId, start, trackId); 
+
+    }   
 
     const setVerticalPointers = (e) => {
         
         let pointerType;
         
-        if (mouse){
-            if (e.offsetY > clip.offsetHeight / 2){ 
-                clip.style.setProperty('--cursor', 'grab')
-                pointerType = 'grab'
-            }
-            else {
-                pointerType = 'text'
-                clip.style.setProperty('--cursor', 'text')
-            }
+        if (e.offsetY > clip.offsetHeight / 2){ 
+            clip.style.setProperty('--cursor', 'grab')
+            pointerType = 'grab'
+        }
+        else {
+            pointerType = 'text'
+            clip.style.setProperty('--cursor', 'text')
         }
         
         return pointerType
@@ -123,7 +293,7 @@
     const updateWaveform = (lineTrims, lineData) => {
         const subArray = lineData.points.slice(lineTrims[0], (lineData.points.length - lineTrims[1]));
         vbLength = String(subArray.length)
-        _points = subArray.join(' ');
+        points = subArray.join(' ');
     }
 
 
@@ -139,7 +309,6 @@
             (c / (lineData.density / lineData.channels))
         ))
     }
-
 
     /**
      * frames to pixels - 
@@ -161,210 +330,93 @@
         AudioCore.awp.port.postMessage({trims: {fileId: fileId, clipId: clipId, trackId: trackId, meta: [position * get(framesPerPixel), clipTrims[0], clipTrims[1]]}})
     }
 
-    const updateTrims = (pixelChange, side, clipTrims, lineTrims, lineData) => {
-
-        if (side === 'left'){
-            let lNewClipTrim = clipTrims[0] + pixelsToFrames(pixelChange, get(framesPerPixel));
-            if (lNewClipTrim < 0) return;
-            clipTrims[0] = lNewClipTrim;
-            //start += pixelChange;
-            
-            let lNewLineTrim = lineTrims[0] + pixelsToLinePoints(pixelChange, get(framesPerPixel), lineData);
-            if (lNewLineTrim < 0) return;
-            lineTrims[0] = lNewLineTrim
-            
-            //Trimming from left requires shifting clips to the right (since length itself can only be changed from the right)
-            start = updatePosition(pixelChange, start); //this a
-            vbShift = String(Number(lineTrims[0]));  
-        }
-        
-        //for actual trimming pixel change will be negative
-        else if (side === 'right'){
-            pixelChange *= -1;``
-            let rNewClipTrim = clipTrims[1] + pixelsToFrames(pixelChange, get(framesPerPixel));
-            if (rNewClipTrim < 0) return;
-            clipTrims[1] = rNewClipTrim
-            
-            let rNewLineTrim = lineTrims[1] + pixelsToLinePoints(pixelChange, get(framesPerPixel), lineData);
-            if (rNewLineTrim < 0) return;
-            lineTrims[1] = rNewLineTrim;
-        }
-
-        updateClipWidth(clipTrims, lineData, get(framesPerPixel));
-        updateWaveform(lineTrims, lineData);
-        
-        setCoreTrims(clipTrims, fileId, clipId, start, trackId); 
-
-    }
-
     const clearCore = (fileId, clipId) => {
         AudioCore.awp.port.postMessage({clear: {fileId: fileId, clipId: clipId}});
     }
 
-
-    
-
-
-    onMount(() => {
-        
-        if (fileId !== null){
-            
-            clip.id = clipId; //tag the DOM element with our passed in ID
-            
-            lineData = get(lineDataStore)[fileId]
-            
-            vbHeight = String(lineData.height); //an arbitrary nmber of pixels since height is scaled to conatiner box. Higher values create lighter looking lines
-            vbLength = String(lineData.points.length); //this is really already in pixel space because each point increments by one pixel (its 1px per 'density' number of samples)
-
-            let lineTrims = clipTrimsToLineTrims(clipTrims, lineData);
-            updateTrims(0, 'left', clipTrims, lineTrims, lineData);
-            updateTrims(0, 'right', clipTrims, lineTrims, lineData);
-                
-            //* MOUSE *//
-            window.addEventListener('mousedown', e => {
-                //reset any highlights
-                mask.style.setProperty('--opacity', 0);
-                mask.style.setProperty('--position', String(hlStart) + 'px');
-                mask.style.setProperty('--width', '0px');
-                hlStart = 0;
-                hlEnd = 0;
-
-            })
-
-
-            window.addEventListener('keydown', e => {
-                
-                if(e.key === 'Backspace' && (Math.abs(hlStart - hlEnd) > 0)){
-
-                    const clipLength = Number(window.getComputedStyle(clip).getPropertyValue('--width').split('px')[0])
-                    const fpp = get(framesPerPixel);
-                    
-                    const leftTrims = [clipTrims[0], clipTrims[1] + pixelsToFrames(clipLength - hlStart, fpp)]
-                    const leftStart = start;
-                    
-
-                    const rightTrims = [clipTrims[0] + pixelsToFrames(hlEnd, fpp), clipTrims[1]]
-                    const rightStart = start + hlEnd;
-
-                    clearCore(fileId, clipId);
-                    unsub();
-
-                    userEvents.update(ue => {
-                        ue.push({type: 'addClips', clips: [{trackId: trackId, fileId: fileId, start: leftStart, trims: leftTrims}, ]})
-                        ue.push({type: 'addClips', clips: [{trackId: trackId, fileId: fileId, start: rightStart, trims: rightTrims}, ]})
-                        ue.push({type: "rmClips", clips: [{trackId: trackId, clipId: clipId}, ]})
-                        return ue;
-                    })
-
-                }
-            })
-
-
-            //reset flags here since we may be outside of the clip
-            window.addEventListener('mouseup', e => {
-                
-                mouseDown = false;
-                isTrimming = false;
-                isMoving = false;
-                isHighlighting = false; //the highlight may still be visible, but it is no longer changing
-                firstHighlight = true;
-                // hlStart = 0;
-                // hlEnd = 0;
-            })
-
-            clip.addEventListener('mouseenter', e => { mouse = true; })
-            clip.addEventListener('mouseleave', e => { mouse = false; })
-            clip.addEventListener('mousedown', e => mouseDown = true)
-
-            clip.addEventListener('mouseup', e => {
-                //isTrimming isMoving etc are reset on the window version of this event listener
-                if (mouse) setVerticalPointers(e)
-            })
-            
-            clip.addEventListener('mousemove', e => {
-
-                if (isHighlighting){
-                    highlightHandler(e);
-                
-                }
-                
-                else if (isMoving){
-                    start = updatePosition(e.movementX, start);
-                    setCoreTrims(clipTrims, fileId, clipId, start, trackId); 
-                }
-
-                else if (isTrimming){
-                    clip.style.setProperty('--cursor', 'ew-resize');
-                    e.offsetX < clip.offsetWidth * 0.05 && updateTrims(e.movementX, 'left', clipTrims, lineTrims, lineData);
-                    e.offsetX > clip.offsetWidth * 0.95 && updateTrims(e.movementX, 'right', clipTrims, lineTrims, lineData);
-                }
-            
-                else if (e.offsetX < clip.offsetWidth * 0.05 || e.offsetX > clip.offsetWidth * 0.95){
-                    if (e.srcElement.id != '-mask'){ //make sure we are referencing the clip
-                        clip.style.setProperty('--cursor', 'ew-resize');
-                        if (mouseDown) isTrimming = true;
-                    }
-                }
-
-                else {
-                let type = setVerticalPointers(e);
-                if (mouseDown){
-                        if (type === 'grab') isMoving = true;
-                        else if (type === 'text') isHighlighting = true;
-                    }
-                }
-            })
-        
-        }
-        
-        else console.error('No Audio Associated With This Clip')
-    })
-
 </script>
 
+
+
 <div bind:this={clip} class='clip'>
+    <div bind:this={ltrim} class='trimAreas' id="ltrim"/>
+    <div bind:this={rtrim} class='trimAreas' id="rtrim"/>
     <div bind:this={mask} class='mask' id='-mask'></div>
-    <div class="line">
+    <div bind:this={line} class="line">
         <svg xmlns="http://www.w3.org/2000/svg" height="100%" width="100%" preserveAspectRatio="none" stroke-width='2' viewBox='{vbShift} 0 {vbLength} {vbHeight}'>
-           <polyline stroke='white' points={_points} fill='none'/>
+           <polyline stroke='white' points={points} fill='none'/>
         </svg>
     </div>
 </div> 
 
 <style>
+
     .clip {
+
         --position: 0px;
         --cursor: auto;
         --width: 0px;
+        
         display: grid;
-        position: relative;
+        position: absolute;
         grid-template-rows: 100%;
-        box-shadow: 0.06em 0.06em 0.2em 0.09em rgba(163, 142, 168, 0.46);
+
         height: 89%;
         width: var(--width);
+        left: var(--position);
+
         margin-top: auto;
         margin-bottom: auto;
-        left: var(--position);
-        /* transform: translateX(var(--position)); */
+
+        box-shadow: 0.06em 0.06em 0.2em 0.09em rgba(163, 142, 168, 0.46);
         background: rgba(177, 177, 177, 0.06);
         cursor: var(--cursor);
+        
+    }
+
+    .trimAreas {
+
         position: absolute;
+        
+        grid-row-start: 1;
+        grid-column-start: 1;
+        
+        width: 15px;
+        height: 100%;
+       
+        z-index: 100;
+
+        background: rgba(245, 222, 179, 0.504);
+
+    }
+
+
+    #ltrim {
+        left: -5px;
+    }
+
+    #rtrim {
+        right: -5px;
     }
 
     .line {
-        width: 100%;
-        height: 100%;
+
         grid-row-start: 1;
         grid-column-start: 1;
+        width: 100%;
+        height: 100%;
+
     }
 
     .mask {
+
         --opacity: 0;
         --position: 0px;
         --width: 0px;
+
         width: var(--width);
         transform: translateX(var(--position));
-        height: 100%;
+        height: 98%;
         grid-row-start: 1;
         grid-column-start: 1;
         background: rgba(209, 213, 255, var(--opacity)); /*up to 0.2 maybe*/
@@ -372,6 +424,7 @@
     }
 
 
+    
 </style>
 
 
