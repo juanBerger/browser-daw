@@ -27,7 +27,7 @@
     let vbLength = 0; //the polyline creates a new point at each pixel
     let vbHeight = 0;
     let vbShift = '0';
-    // let _maxSvgWidth = 0;
+    let maxSvgWidth = 0;
 
     /* Mouse states */
     let mouse = null;
@@ -62,7 +62,7 @@
         }
         
         //skip the zoom operation when the fpp is initially set on load
-        !lastfpp ? lastfpp = fpp : zoom();
+        //!lastfpp ? lastfpp = fpp : zoom();
     });
 
     onMount(() => {
@@ -75,6 +75,7 @@
             
             vbHeight = String(lineData.height); //an arbitrary nmber of pixels since height is scaled to conatiner box. Higher values create lighter looking lines
             vbLength = String(lineData.points.length); //this is really already in pixel space because each point increments by one pixel (its 1px per 'density' number of samples)
+            maxSvgWidth = framesToPixels(lineData.sampleLength / lineData.channels, get(framesPerPixel));
 
             let lineTrims = clipTrimsToLineTrims(clipTrims, lineData);
             updateTrims(0, 'left', clipTrims, lineTrims, lineData);
@@ -85,28 +86,28 @@
                 mouseDown = true
 
                 //reset any highlights
-                mask.style.setProperty('--opacity', 0);
-                mask.style.setProperty('--position', String(hlStart) + 'px');
-                mask.style.setProperty('--width', '0px');
+                // mask.style.setProperty('--opacity', 0);
+                // mask.style.setProperty('--position', String(hlStart) + 'px');
+                // mask.style.setProperty('--width', '0px');
                 hlStart = 0;
                 hlEnd = 0;
 
             })
 
 
-            // window.addEventListener('mousemove', e => {
+            window.addEventListener('mousemove', e => {
                 
-            //     if (isTrimmingLeft){
-            //         updateTrims(e.movementX, 'left', clipTrims, lineTrims, lineData);
-            //     }
+                if (isTrimmingLeft){
+                    updateTrims(e.movementX, 'left', clipTrims, lineTrims, lineData);
+                }
 
-            //     else if (isTrimmingRight){
-            //         updateTrims(e.movementX, 'right', clipTrims, lineTrims, lineData);
-            //     }
+                else if (isTrimmingRight){
+                    updateTrims(e.movementX, 'right', clipTrims, lineTrims, lineData);
+                }
 
-            //     //add is moving
+                //add is moving
                 
-            // })
+            })
             
         
             ltrim.addEventListener('mousemove', (e) => {
@@ -125,31 +126,41 @@
                     isTrimmingRight = true;
                     updateTrims(e.movementX, 'right', clipTrims, lineTrims, lineData);
                 }
-                    
-
             });
 
-            // clip.addEventListener('mousemove', (e) => {
-            //     if (isHighlighting) 
-            //         highlightHandler(e);
+            clip.addEventListener('mousemove', (e) => {
+                if (isHighlighting) 
+                    highlightHandler(e);
 
 
-            //     else if (isMoving){
-            //         start = updatePosition(e.movementX, start);
-            //         setCoreTrims(clipTrims, fileId, clipId, start, trackId);
-            //     }
+                else if (isMoving){
+                    start = updatePosition(e.movementX, start);
+                    setCoreTrims(clipTrims, fileId, clipId, start, trackId);
+                }
 
+                // else if (isTrimming){
+                //     clip.style.setProperty('--cursor', 'ew-resize');
+                //     e.offsetX < clip.offsetWidth * 0.05 && updateTrims(e.movementX, 'left', clipTrims, lineTrims, lineData);
+                //     e.offsetX > clip.offsetWidth * 0.95 && updateTrims(e.movementX, 'right', clipTrims, lineTrims, lineData);
+                // }
+        
+                // else if (e.offsetX < clip.offsetWidth * 0.05 || e.offsetX > clip.offsetWidth * 0.95){
+                //     if (e.srcElement.id != '-mask'){ //make sure we are referencing the clip
+                //         clip.style.setProperty('--cursor', 'ew-resize');
+                //         if (mouseDown) isTrimming = true;
+                //     }
 
+                // }
 
-            //     else {
-            //         let type = setVerticalPointers(e);
-            //         if (mouseDown){
-            //             if (type === 'grab') isMoving = true;
-            //             else if (type === 'text') isHighlighting = true;
-            //         }
-            //     }
+                else {
+                    let type = setVerticalPointers(e);
+                    if (mouseDown){
+                        if (type === 'grab') isMoving = true;
+                        else if (type === 'text') isHighlighting = true;
+                    }
+                }
 
-            // })
+            })
 
             //* MOUSE *//
             
@@ -292,7 +303,7 @@
 
     const updateWaveform = (lineTrims, lineData) => {
         const subArray = lineData.points.slice(lineTrims[0], (lineData.points.length - lineTrims[1]));
-        vbLength = String(subArray.length)
+        //vbLength = String(subArray.length)
         points = subArray.join(' ');
     }
 
@@ -316,8 +327,8 @@
      * @param fpp - current frames per pixel value
      */
     const framesToPixels = (frames, fpp) => {
-        const totalFrames = frames.reduce((prev, current) => prev + current);
-        return Math.round(totalFrames / fpp);
+        //const totalFrames = frames.reduce((prev, current) => prev + current);
+        return Math.round(frames / fpp);
     }
 
     const pixelsToFrames = (pixels, fpp) => {
@@ -337,17 +348,18 @@
 </script>
 
 
-
 <div bind:this={clip} class='clip'>
+
     <div bind:this={ltrim} class='trimAreas' id="ltrim"/>
     <div bind:this={rtrim} class='trimAreas' id="rtrim"/>
     <div bind:this={mask} class='mask' id='-mask'></div>
     <div bind:this={line} class="line">
-        <svg xmlns="http://www.w3.org/2000/svg" height="100%" width="100%" preserveAspectRatio="none" stroke-width='2' viewBox='{vbShift} 0 {vbLength} {vbHeight}'>
+        <svg xmlns="http://www.w3.org/2000/svg" height="100%" width={maxSvgWidth} preserveAspectRatio="none" stroke-width='2' viewBox='{vbShift} 0 {vbLength} {vbHeight}'>
            <polyline stroke='white' points={points} fill='none'/>
         </svg>
     </div>
-</div> 
+</div>
+
 
 <style>
 
@@ -380,8 +392,9 @@
         
         grid-row-start: 1;
         grid-column-start: 1;
-        
-        width: 15px;
+       
+        width: 35px;
+        /* width: 15px; */
         height: 100%;
        
         z-index: 100;

@@ -10,7 +10,7 @@
     import Playhead from './Playhead.svelte'
 
     let trackArea;
-    let zoomStep = 10; // 0 to 30 --> as this gets higher polyline height should somehow get smaller
+    let zoomStep = 3; // 0 to 30 --> as this gets higher polyline height should somehow get smaller
     let playheadHeight = 0;
 
     const tracks = []; //this component is in charge of assigning track ids. It reuses indeces from this array
