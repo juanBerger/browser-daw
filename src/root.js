@@ -1,20 +1,22 @@
 import './styles.css'
 import App from './App.svelte'
+import { AudioCore, CanvasCore } from './audio-utils.js';
 
-window.onload = () => {  
+window.onload = async () => { 
+    await AudioCore.create();
+    
     const app = new App({target: document.getElementById('root')})
+    const canvasWorker = CanvasCore.create();
+
+    const pOffscreen = document.getElementById('playCanvas').transferControlToOffscreen();
+    canvasWorker.port.postMessage({playCanvas: pOffscreen}, [pOffscreen]);
+
+    //other canvases
+
+    AudioCore.awp.port.postMessage({canvasPort: canvasWorker.port}, [canvasWorker.port])
+
+
 }
-
-
-
-
-
-
-
-
-
-
-
 
 
 //This is for a file dialogue
@@ -26,10 +28,6 @@ window.onload = () => {
 //     const buffer = await file.arrayBuffer()
 //     return buffer
 // }
-
-
-
-
 
  // //** SET TO MAX WIDTH*/
     // let totalSamples = SR * 60 * 60 * NUM_HOURS

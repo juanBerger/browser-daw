@@ -1,6 +1,6 @@
 <script>
 
-    import { onDestroy, onMount, tick } from 'svelte';
+    import { onDestroy, onMount } from 'svelte';
     import { get } from 'svelte/store'
 
     import { framesPerPixel, userEvents } from './stores.js'
@@ -8,14 +8,10 @@
     import Track from './Track.svelte'
     import Meter from './Meter.svelte'
     import Playhead from './Playhead.svelte'
+    import { AudioCore } from './audio-utils.js';
 
     let trackArea;
-    let zoomStep = 3; // 0 to 30 --> as this gets higher polyline height should somehow get smaller
-    let playheadHeight = 0;
-
     const tracks = []; //this component is in charge of assigning track ids. It reuses indeces from this array
-    const SR = 48000;
-    const NUM_HOURS = 1;
 
     const ueUnsub = userEvents.subscribe(async ue => {
         
@@ -44,6 +40,9 @@
                 tracks.push(track)
             }
         }
+
+      
+
     })
 
     function popUserEvent(i){
@@ -53,41 +52,50 @@
         })
     }
 
-    onMount(async () => {
 
-        //  S E T    M A X    W I D T H   //
-        let totalSamples = SR * 60 * 60 * NUM_HOURS
-        framesPerPixel.ease(zoomStep)
-        let pixelWidth = String(Math.round(totalSamples / get(framesPerPixel)))
-        trackArea.style.setProperty('--trackArea-width', pixelWidth + 'px')
+    onMount(async () => {
+        resObs.observe(trackArea);
 
     })
 
     onDestroy(() => {
         ueUnsub();
+        cvsUnsub();
+    })
+
+    const resObs = new ResizeObserver(e => {
+        console.log(e[0].borderBoxSize[0].inlineSize, e[0].borderBoxSize[0].blockSize);
+        AudioCore.awp.port.postMessage({resize: {type: 'playhead', width: e[0].borderBoxSize[0].inlineSize, height: e[0].borderBoxSize[0].blockSize}})
     })
 
 
 </script>
 
     <div bind:this={trackArea} id='trackArea'>
-        <!-- {#if _this}
-            <Playhead height={playheadHeight}/>
-        {/if} -->
+        <canvas id='playCanvas'></canvas>
+        <Playhead/>
     </div>
 
 <style>
 
-#trackArea {
-    --trackArea-width: 0px;
-    position: relative;
-    grid-row-start: 3;
-    grid-column-start: 3;
-    display: flex;
-    flex-direction: column;
-    margin: 0.8em;
-    width: var(--trackArea-width);
-}
+    #trackArea {
+        --trackArea-width: 0px;
+        position: relative;
+        grid-row-start: 3;
+        grid-column-start: 3;
+        display: flex;
+        flex-direction: column;
+        /* margin-left: 0.8em;
+        margin-right: 0.8em; */
+      
+    }
+
+
+    #playCanvas {
+        box-sizing: border-box;
+        position: absolute;
+        z-index: -100;
+    }
 
 </style>
 

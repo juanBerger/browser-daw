@@ -1,7 +1,8 @@
 
 <script>
 
-    import { onMount, tick, afterUpdate } from 'svelte';
+    import { onMount, createEventDispatcher, tick, afterUpdate } from 'svelte';
+
 
     import { get } from 'svelte/store';
     import {framesPerPixel, userEvents, lineDataStore} from './stores';
@@ -12,7 +13,9 @@
     export let start; //start position on the timeline in pixels
     export let clipTrims; //left and right trims in frames
     export let trackId; //this gets added to the metas
+    export let track;
     export let clipId;
+
 
     //* DOM Elements *//
     let clip;
@@ -65,6 +68,8 @@
         //!lastfpp ? lastfpp = fpp : zoom();
     });
 
+    const dispatch = createEventDispatcher();
+
     onMount(() => {
         
         if (fileId !== null){
@@ -80,91 +85,21 @@
             let lineTrims = clipTrimsToLineTrims(clipTrims, lineData);
             updateTrims(0, 'left', clipTrims, lineTrims, lineData);
             updateTrims(0, 'right', clipTrims, lineTrims, lineData);
-        
+
             window.addEventListener('mousedown', e => {
                 
                 mouseDown = true
 
                 //reset any highlights
-                // mask.style.setProperty('--opacity', 0);
-                // mask.style.setProperty('--position', String(hlStart) + 'px');
-                // mask.style.setProperty('--width', '0px');
+                mask.style.setProperty('--opacity', 0);
+                mask.style.setProperty('--position', String(hlStart) + 'px');
+                mask.style.setProperty('--width', '0px');
                 hlStart = 0;
                 hlEnd = 0;
 
             })
 
-
-            window.addEventListener('mousemove', e => {
-                
-                if (isTrimmingLeft){
-                    updateTrims(e.movementX, 'left', clipTrims, lineTrims, lineData);
-                }
-
-                else if (isTrimmingRight){
-                    updateTrims(e.movementX, 'right', clipTrims, lineTrims, lineData);
-                }
-
-                //add is moving
-                
-            })
-            
-        
-            ltrim.addEventListener('mousemove', (e) => {
-                clip.style.setProperty('--cursor', 'ew-resize');
-                if (mouseDown){
-                    isTrimmingLeft = true;
-                    updateTrims(e.movementX, 'left', clipTrims, lineTrims, lineData);
-                }
-                    
-
-            });
-
-            rtrim.addEventListener('mousemove', (e) => {
-                clip.style.setProperty('--cursor', 'ew-resize');
-                if (mouseDown){
-                    isTrimmingRight = true;
-                    updateTrims(e.movementX, 'right', clipTrims, lineTrims, lineData);
-                }
-            });
-
-            clip.addEventListener('mousemove', (e) => {
-                if (isHighlighting) 
-                    highlightHandler(e);
-
-
-                else if (isMoving){
-                    start = updatePosition(e.movementX, start);
-                    setCoreTrims(clipTrims, fileId, clipId, start, trackId);
-                }
-
-                // else if (isTrimming){
-                //     clip.style.setProperty('--cursor', 'ew-resize');
-                //     e.offsetX < clip.offsetWidth * 0.05 && updateTrims(e.movementX, 'left', clipTrims, lineTrims, lineData);
-                //     e.offsetX > clip.offsetWidth * 0.95 && updateTrims(e.movementX, 'right', clipTrims, lineTrims, lineData);
-                // }
-        
-                // else if (e.offsetX < clip.offsetWidth * 0.05 || e.offsetX > clip.offsetWidth * 0.95){
-                //     if (e.srcElement.id != '-mask'){ //make sure we are referencing the clip
-                //         clip.style.setProperty('--cursor', 'ew-resize');
-                //         if (mouseDown) isTrimming = true;
-                //     }
-
-                // }
-
-                else {
-                    let type = setVerticalPointers(e);
-                    if (mouseDown){
-                        if (type === 'grab') isMoving = true;
-                        else if (type === 'text') isHighlighting = true;
-                    }
-                }
-
-            })
-
-            //* MOUSE *//
-            
-            //reset flags here since we may be outside of the clip
+            // //reset flags here since we may be outside of the clip
             window.addEventListener('mouseup', () => {
                 
                 mouseDown = false;
@@ -176,6 +111,83 @@
                 firstHighlight = true;
             
             })
+
+            track.addEventListener('mousemove', e => {
+
+                if (isTrimmingLeft){
+                    updateTrims(e.movementX, 'left', clipTrims, lineTrims, lineData);
+                }
+
+                else if (isTrimmingRight){
+                    updateTrims(e.movementX, 'right', clipTrims, lineTrims, lineData);
+                }
+
+                else if (isMoving){
+                    start = updatePosition(e.movementX, start);
+                    setCoreTrims(clipTrims, fileId, clipId, start, trackId);
+                }
+            })
+
+            
+            line.addEventListener('mousemove', e => {
+                
+                //console.log('Line ', e.target)
+                
+                if (isHighlighting) 
+                    highlightHandler(e);
+
+                else {
+
+                    if (isMoving || isHighlighting || isTrimmingLeft || isTrimmingRight)
+                        return
+                    
+                    let type = setVerticalPointers(e);
+                    if (mouseDown){
+                        if (type === 'grab') {
+                            isMoving = true;
+                            dispatch('isMoving', {value: true, clipId: clipId})
+                        }
+                        else if (type === 'text') {
+                            isHighlighting = true;
+                        }
+                    }
+
+                }
+
+            })
+
+        
+            // svg.addEventListener('mousemove', e => {
+            //     e.stopPropagation();
+            // });
+
+
+
+            ltrim.addEventListener('mousemove', (e) => {
+                
+                //console.log('LTrim ', e.target)
+
+                if (isMoving || isHighlighting){
+                    return
+                }
+                    
+
+                clip.style.setProperty('--cursor', 'ew-resize');
+                if (mouseDown){
+                    isTrimmingLeft = true;
+                }
+            });
+
+            rtrim.addEventListener('mousemove', (e) => {
+                
+                if (isMoving || isHighlighting)
+                    return
+                
+                clip.style.setProperty('--cursor', 'ew-resize');
+                if (mouseDown){
+                    isTrimmingRight = true;
+                }
+            });
             
             window.addEventListener('keydown', e => {
                 
@@ -208,6 +220,8 @@
         else console.error('No Audio Associated With This Clip')
     })
 
+
+    
 
     const updateTrims = (pixelChange, side, clipTrims, lineTrims, lineData) => {
 
@@ -295,8 +309,8 @@
      * @param start: start position in pixels. Updates this global var in place
      */
     const updatePosition = (pixelChange, start) => {
-        start += pixelChange
-        clip.style.setProperty('--position', start + 'px')
+        start += pixelChange;
+        clip.style.setProperty('--position', start + 'px');
         return start
     }
 
@@ -354,8 +368,8 @@
     <div bind:this={rtrim} class='trimAreas' id="rtrim"/>
     <div bind:this={mask} class='mask' id='-mask'></div>
     <div bind:this={line} class="line">
-        <svg xmlns="http://www.w3.org/2000/svg" height="100%" width={maxSvgWidth} preserveAspectRatio="none" stroke-width='2' viewBox='{vbShift} 0 {vbLength} {vbHeight}'>
-           <polyline stroke='white' points={points} fill='none'/>
+        <svg id="svg" xmlns="http://www.w3.org/2000/svg" height="100%" width={maxSvgWidth} preserveAspectRatio="none" stroke-width='2' viewBox='{vbShift} 0 {vbLength} {vbHeight}'>
+           <polyline id="pl" stroke='white' points={points} fill='none'/>
         </svg>
     </div>
 </div>
@@ -369,16 +383,17 @@
         --cursor: auto;
         --width: 0px;
         
-        display: grid;
+        /* display: grid; */
         position: absolute;
         grid-template-rows: 100%;
 
+        box-sizing: content-box;
         height: 89%;
         width: var(--width);
         left: var(--position);
 
-        margin-top: auto;
-        margin-bottom: auto;
+        margin-top: 0.45em;
+        margin-bottom: 0.45em;
 
         box-shadow: 0.06em 0.06em 0.2em 0.09em rgba(163, 142, 168, 0.46);
         background: rgba(177, 177, 177, 0.06);
@@ -389,17 +404,17 @@
     .trimAreas {
 
         position: absolute;
-        
+/*         
         grid-row-start: 1;
-        grid-column-start: 1;
-       
-        width: 35px;
+        grid-column-start: 1; */
+        
+        width: 25px;
         /* width: 15px; */
         height: 100%;
        
         z-index: 100;
 
-        background: rgba(245, 222, 179, 0.504);
+        /* background: rgba(245, 222, 179, 0.504); */
 
     }
 
@@ -414,11 +429,16 @@
 
     .line {
 
-        grid-row-start: 1;
-        grid-column-start: 1;
+        /* grid-row-start: 1;
+        grid-column-start: 1; */
+        position: absolute;
         width: 100%;
         height: 100%;
 
+    }
+
+    #pl, #svg {
+        pointer-events: none;
     }
 
     .mask {
@@ -427,11 +447,14 @@
         --position: 0px;
         --width: 0px;
 
+        position: absolute;
+
         width: var(--width);
-        transform: translateX(var(--position));
+        /* transform: translateX(var(--position)); */
+        left: var(--position);
         height: 98%;
-        grid-row-start: 1;
-        grid-column-start: 1;
+        /* grid-row-start: 1;
+        grid-column-start: 1; */
         background: rgba(209, 213, 255, var(--opacity)); /*up to 0.2 maybe*/
 
     }

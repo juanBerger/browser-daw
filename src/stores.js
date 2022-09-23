@@ -1,10 +1,17 @@
-import { writable } from 'svelte/store'
+import { readable, writable } from 'svelte/store'
 import { scaler } from './utils.js'
-import { AudioCore } from './audio-utils.js'
 
 const MIN_FPP = 25; 
 const MAX_FPP = 10000;
 const CHANNELS = 2;
+
+
+export const userEvents = writable([]); //{type: x, <type specific props>}
+// export const cvsWorker = readable(CanvasCore.create());
+
+export const lineDataStore = writable({});
+
+
 
 function applyEasing (x) {
     const { set, update, subscribe } = writable(x);
@@ -33,19 +40,6 @@ function applyEasing (x) {
 
 export const framesPerPixel = applyEasing();
 export const currentFrame = writable(0); //Not sure we need this
-export const isPlaying = writable(false);
-
-export const userEvents = writable([]); //{type: x, <type specific props>}
-export const lineDataStore = writable({});
 
 
 
-const unsub = currentFrame.subscribe(frame => {
-    if (AudioCore.awp){
-        AudioCore.awp.port.postMessage({snap: frame})
-    }
-});
-
-AudioCore.registerCallback(e => {
-    if (e.data.tick) currentFrame.set(e.data.tick)
-});

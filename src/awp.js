@@ -6,20 +6,36 @@ class AWP extends AudioWorkletProcessor {
 	constructor() { 
 		
 		super()
+		this.canvasPort;
 
 		this.port.onmessage = e => {
 			
-			if (e.data.playState){
-				console.log(e.data.playState)
-				this.Transport.updateState(e.data)
+			if (e.data.canvasPort){
+				this.canvasPort = e.data.canvasPort;	
 			}
 
-			else if (e.data.snap){
-				this.Transport.snap(e.data.snap)
-				if (!this.Transport.isPlaying)
-					this.Transport.snapSearch(this.Files);
+			else if (e.data.resize){
+				this.canvasPort.postMessage(e.data)
 
 			}
+
+			else if (e.data.playToggle){
+				this.Transport.isPlaying = !this.Transport.isPlaying
+				this.Transport.fpp = e.data.fpp;
+			}
+
+
+			// else if (e.data.playState){
+			// 	console.log(e.data.playState)
+			// 	this.Transport.updateState(e.data)
+			// }
+
+			// else if (e.data.snap){
+			// 	this.Transport.snap(e.data.snap)
+			// 	if (!this.Transport.isPlaying)
+			// 		this.Transport.snapSearch(this.Files);
+
+			// }
 
 			else if (e.data.file){
 				let id = this.Files.add(e.data.file, e.data.filename)
@@ -94,7 +110,7 @@ class AWP extends AudioWorkletProcessor {
 
 				while(isSearching){
 
-					if (count > 300){
+					if (count > 300){ //loop till eof instead
 						console.error('No data chunk found!');
 						isSearching = false;
 					}
@@ -211,6 +227,7 @@ class AWP extends AudioWorkletProcessor {
 		this.Transport = {
 			
 			isPlaying: false,
+			fpp: 0,
 			frameNumber: 0,
 			timeline: {},
 			stack: [],
@@ -223,17 +240,17 @@ class AWP extends AudioWorkletProcessor {
 				console.log('Cleared Transport Stack')
 			},
 
-			updateState(updateObj){
+			// updateState(updateObj){
 				
-				if(updateObj.playState === 'play') 
-					this.isPlaying = true;
-				else {
-					this.isPlaying = false;
-					this.snap(updateObj.startPos)
-					//this.clearStack();
+			// 	if(updateObj.playState === 'play') 
+			// 		this.isPlaying = true;
+			// 	else {
+			// 		this.isPlaying = false;
+			// 		this.snap(updateObj.startPos)
+			// 		//this.clearStack();
 					
-				}				
-			},
+			// 	}				
+			// },
 
 			//check if current transport position overlaps any entries in the timeline object - if so,
 			//add to the transport stack
@@ -428,7 +445,9 @@ class AWP extends AudioWorkletProcessor {
 			}
 			
 			this.Transport.tick(frames)
-			this.port.postMessage({tick: this.Transport.frameNumber})
+			
+			//only call this every x times --> And have the other thread interpolate between these based on the fpp
+			this.canvasPort.postMessage({tick: this.Transport.frameNumber, fpp: this.Transport.fpp})
 		}
 
 
@@ -437,18 +456,6 @@ class AWP extends AudioWorkletProcessor {
 }
   
   registerProcessor('awp', AWP)
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

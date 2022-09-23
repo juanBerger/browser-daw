@@ -1,56 +1,81 @@
 <script>
 
     import { onMount, onDestroy } from 'svelte';
-
-    import {userEvents } from './stores.js';
+    import { get } from 'svelte/store'
+    import {userEvents, framesPerPixel } from './stores.js';
 
     import TrackArea from './TrackArea.svelte';
     import LeftArea from  './LeftArea.svelte';
     import Header from './Header.svelte';
 
     import { Loaders } from './Loaders.js';
-    import { AudioCore } from './audio-utils.js';
 
+    const SR = 48000;
+    const NUM_HOURS = 0.1;
+    const INIT_ZOOM_STEP = 10; // 0 to 30 --> as this gets higher polyline height should somehow get smaller
     const LOAD_OPTION = 'auto';
 
-    /**
-     * events --> add Track (can be with or without clips if withclips need to pass in handle?)
-     */
-    const ueUnsub = userEvents.subscribe(ue => {
-        
-    })
+    let app;
 
     onMount(async () => {
 
-        await AudioCore.create();
+        setSize(true, true);
+
         if (LOAD_OPTION = 'auto')
-            Loaders.auto();
+           Loaders.auto();
+
     })
 
     onDestroy(() => {
         ueUnsub();
     })
 
+    addEventListener('resize', e => {
+        setSize(false, true);
+    })
+
+    const setSize = (setWidth, setHeight) => {
+    
+        if (setWidth){
+            let totalSamples = SR * 60 * 60 * NUM_HOURS;
+            framesPerPixel.ease(INIT_ZOOM_STEP)
+            let pixelWidth = String(Math.round(totalSamples / get(framesPerPixel)))
+            app.style.setProperty('--app-width', pixelWidth + 'px')
+        }
+
+        if (setHeight){
+            const height = String(window.innerHeight - (18 + 15));
+            app.style.setProperty('--app-height', height + 'px')
+        }
+    }
+
 
 </script>
 
 
-<div id='app'>
+<div bind:this={app} id='app'>
+    
     <LeftArea/>
     <div id='vDivider'/>
     <Header/>
     <div id='hDivider'/>
     <TrackArea/>
+
 </div>
 
 
 <style>
 
-    #app {
+    #app {    
+        --app-width: 0px;
+        --app-height: 0px;
         display: grid;
-        grid-template-columns: minmax(100px, 1fr) 1px 8fr;
-        grid-template-rows: 18vh 1px 78vh; 
-        overflow: auto;
+        grid-template-columns: 130px 1px 1fr;
+        grid-template-rows: 1fr 1px 6fr;
+        width: var(--app-width);
+        height: var(--app-height);
+        border: 1px solid rgb(255, 205, 238, 0.6);
+
     }
 
     #vDivider {

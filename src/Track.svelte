@@ -10,6 +10,7 @@
 
     export let trackId;
     let track;
+    let maxZIdx;
     
     const ueUnsub = userEvents.subscribe(async ue => { 
 
@@ -35,8 +36,13 @@
                         start: clip.start,
                         clipTrims: clip.trims,
                         trackId: trackId,
+                        track: track,
                         clipId: uuidv4()
                     }})
+
+                    newClip.$on('isMoving', e => {
+                        setZAxes(e.detail)
+                    })
 
                     break;
                 
@@ -48,6 +54,17 @@
 
             }
 
+        }
+
+    }
+
+
+    function setZAxes(e){
+        if(e.value === true){
+            const children =  Array.from(track.childNodes);
+            children.forEach(c => {
+                c.id === e.clipId ? c.style['z-index'] = 1 :  c.style['z-index'] = 0;
+            })
         }
 
     }

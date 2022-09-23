@@ -1,4 +1,18 @@
 import awpURL from 'omt:./awp.js'
+import canvasURL from 'omt:./canvas.js'
+
+
+export const CanvasCore = {
+
+    worker: null,
+
+    create(){
+        this.worker = new SharedWorker(canvasURL, {name: 'Canvas Worker'})
+        return this.worker;
+    }
+
+}
+
 
 export const AudioCore = {
 
