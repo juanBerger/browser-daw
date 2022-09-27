@@ -13,7 +13,7 @@
     let trackArea;
     const tracks = []; //this component is in charge of assigning track ids. It reuses indeces from this array
 
-    const ueUnsub = userEvents.subscribe(async ue => {
+    const ueUnsub = userEvents.subscribe(ue => {
         
         for (const [i, event] of ue.entries()){   
             if (event.type === 'addTrack'){
@@ -24,8 +24,8 @@
                         trackId: tracks.length, //we are just using the indexes here as trackIds
                     }
                 })
-
                 
+                AudioCore.awp.port.postMessage({addTrack: tracks.length})
                 popUserEvent(i);
                 
                 if (event.clips){
@@ -39,9 +39,9 @@
                 console.log('Pushed Add Clip Event')
                 tracks.push(track)
             }
+        
+        
         }
-
-      
 
     })
 
@@ -64,7 +64,7 @@
     })
 
     const resObs = new ResizeObserver(e => {
-        console.log(e[0].borderBoxSize[0].inlineSize, e[0].borderBoxSize[0].blockSize);
+        //console.log(e[0].borderBoxSize[0].inlineSize, e[0].borderBoxSize[0].blockSize);
         AudioCore.awp.port.postMessage({resize: {type: 'playhead', width: e[0].borderBoxSize[0].inlineSize, height: e[0].borderBoxSize[0].blockSize}})
     })
 

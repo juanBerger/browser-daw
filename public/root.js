@@ -430,7 +430,7 @@ function applyEasing (x) {
 
 const framesPerPixel = applyEasing();
 
-var awpURL = "awp-d34ac5d2.js";
+var awpURL = "awp-c4c6810a.js";
 
 var canvasURL = "canvas-e52834ea.js";
 
@@ -454,6 +454,7 @@ const AudioCore = {
     onMessageCallbacks: [],
     addFileResult: -1,
     getWaveFormResult: -1,
+    getAddTrackResult: -1,
 
     registerCallback(callback){
         this.onMessageCallbacks.push(callback);
@@ -465,6 +466,11 @@ const AudioCore = {
             //special cases
             if (e.data.id){
                 this.addFileResult = e.data.id;
+                return
+            }
+
+            else if (e.data.addTrack){
+                this.getAddTrackResult = e.data.addTrack;
                 return
             }
 
@@ -487,7 +493,7 @@ const AudioCore = {
                     clearInterval(interval);
                     let result = this.addFileResult;
                     this.addFileResult = - 1;
-                    this.addFileResult !== null ? resolve(result) : reject(result);
+                    result !== null ? resolve(result) : reject(result);
                 }
             
             }, 3);
@@ -498,6 +504,7 @@ const AudioCore = {
 
 
     getWaveform (id){
+        
         return new Promise((resolve, reject) => {
             
             const interval = setInterval(() => {
@@ -506,7 +513,7 @@ const AudioCore = {
                     clearInterval(interval);
                     let result = this.getWaveFormResult;
                     this.getWaveFormResult = -1;
-                    this.getWaveFormResult !== null ? resolve(result) : reject(result);
+                    result !== null ? resolve(result) : reject(result);
                 }
             
             }, 3);
@@ -518,7 +525,26 @@ const AudioCore = {
 
     },
 
-    addClips (){
+
+    addTrack (id){
+
+        return new Promise((resolve, reject) => {
+            
+            const interval = setInterval(() => {
+    
+                if(this.getAddTrackResult !== -1){
+                    clearInterval(interval);
+                    let result = this.getAddTrackResult;
+                    this.getAddTrackResult = -1;
+                    result !== null ? resolve(result) : reject(result);
+                }
+            
+            }, 3);
+            
+        
+            this.awp.port.postMessage({addTrack: id});
+            
+        })
 
     },
 
@@ -920,14 +946,16 @@ function instance$5($$self, $$props, $$invalidate) {
 	};
 
 	const setCoreTrims = (clipTrims, fileId, clipId, position, trackId) => {
-		//clipTrims[0] -= 12000 //everything is a little off lol 
-		//clipTrims = clipTrims.map(ct => ct * 1);
+		const start = position * get_store_value(framesPerPixel);
+
 		AudioCore.awp.port.postMessage({
-			trims: {
-				fileId,
-				clipId,
+			uiUpdate: {
+				start,
+				end: start + (lineData.sampleLength / 2 - clipTrims[1]),
+				trims: [clipTrims[0], clipTrims[1]],
 				trackId,
-				meta: [position * get_store_value(framesPerPixel), clipTrims[0], clipTrims[1]]
+				fileId,
+				clipId
 			}
 		});
 	};
@@ -1232,7 +1260,7 @@ function instance$2($$self, $$props, $$invalidate) {
 	let trackArea;
 	const tracks = []; //this component is in charge of assigning track ids. It reuses indeces from this array
 
-	const ueUnsub = userEvents.subscribe(async ue => {
+	const ueUnsub = userEvents.subscribe(ue => {
 		for (const [i, event] of ue.entries()) {
 			if (event.type === 'addTrack') {
 				const track = new Track({
@@ -1243,6 +1271,7 @@ function instance$2($$self, $$props, $$invalidate) {
 						}
 					});
 
+				AudioCore.awp.port.postMessage({ addTrack: tracks.length });
 				popUserEvent(i);
 
 				if (event.clips) {
@@ -1276,8 +1305,7 @@ function instance$2($$self, $$props, $$invalidate) {
 	});
 
 	const resObs = new ResizeObserver(e => {
-			console.log(e[0].borderBoxSize[0].inlineSize, e[0].borderBoxSize[0].blockSize);
-
+			//console.log(e[0].borderBoxSize[0].inlineSize, e[0].borderBoxSize[0].blockSize);
 			AudioCore.awp.port.postMessage({
 				resize: {
 					type: 'playhead',
@@ -1387,11 +1415,13 @@ class Header extends SvelteComponent {
 
 const Loaders = {
 
+    count: -1,
+
     auto() {
 
         const files = [
             "test_1.wav",
-            "TRL_TRL_0128_01401_Wonder__a__APM.wav"
+            // "TRL_TRL_0128_01401_Wonder__a__APM.wav"
         ];
 
         for (const file of files){
@@ -1402,7 +1432,7 @@ const Loaders = {
             req.send();
             req.onload = async e => {
                 const audioBuffer = req.response;
-                this._parseResponse(audioBuffer, file);
+                await this._parseResponse(audioBuffer, file);
             };
 
         }
@@ -1422,9 +1452,10 @@ const Loaders = {
     //This defines how we react to each new audioBuffer
     async _parseResponse(audioBuffer, file){
         
+        this.count++;
         const fileId = await AudioCore.addFile(audioBuffer, file.split('.wav')[0]);
-        const lineData = await AudioCore.getWaveform(fileId); 
-        
+        const lineData = await AudioCore.getWaveform(fileId);
+      
         //we need to keep a copy of this on the ui thread so that creating new clips is not async
         lineDataStore.update(lds => {
             lds[fileId] = lineData;

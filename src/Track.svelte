@@ -2,11 +2,13 @@
 
     import { onDestroy, onMount } from 'svelte';
     import { get } from 'svelte/store'
-
     import { userEvents } from './stores.js'
-    import Clip from './Clip.svelte'
-
+    
     import { uuidv4 } from './utils.js';
+
+    import Clip from './Clip.svelte'
+    import { AudioCore } from './audio-utils.js'
+
 
     export let trackId;
     let track;
@@ -43,6 +45,7 @@
                     newClip.$on('isMoving', e => {
                         setZAxes(e.detail)
                     })
+
 
                     break;
                 
@@ -100,6 +103,7 @@
 
         track.id = trackId;
         console.log('Track On Load', trackId)
+        
 
     })
 

@@ -3,11 +3,13 @@ import { AudioCore } from './audio-utils.js'
 
 export const Loaders = {
 
+    count: -1,
+
     auto() {
 
         const files = [
             "test_1.wav",
-            "TRL_TRL_0128_01401_Wonder__a__APM.wav"
+            // "TRL_TRL_0128_01401_Wonder__a__APM.wav"
         ]
 
         for (const file of files){
@@ -18,7 +20,7 @@ export const Loaders = {
             req.send();
             req.onload = async e => {
                 const audioBuffer = req.response;
-                this._parseResponse(audioBuffer, file);
+                await this._parseResponse(audioBuffer, file);
             }
 
         }
@@ -38,9 +40,10 @@ export const Loaders = {
     //This defines how we react to each new audioBuffer
     async _parseResponse(audioBuffer, file){
         
+        this.count++
         const fileId = await AudioCore.addFile(audioBuffer, file.split('.wav')[0]);
-        const lineData = await AudioCore.getWaveform(fileId); 
-        
+        const lineData = await AudioCore.getWaveform(fileId);
+      
         //we need to keep a copy of this on the ui thread so that creating new clips is not async
         lineDataStore.update(lds => {
             lds[fileId] = lineData

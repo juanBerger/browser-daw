@@ -22,6 +22,7 @@ export const AudioCore = {
     onMessageCallbacks: [],
     addFileResult: -1,
     getWaveFormResult: -1,
+    getAddTrackResult: -1,
 
     registerCallback(callback){
         this.onMessageCallbacks.push(callback)
@@ -33,6 +34,11 @@ export const AudioCore = {
             //special cases
             if (e.data.id){
                 this.addFileResult = e.data.id;
+                return
+            }
+
+            else if (e.data.addTrack){
+                this.getAddTrackResult = e.data.addTrack;
                 return
             }
 
@@ -55,7 +61,7 @@ export const AudioCore = {
                     clearInterval(interval);
                     let result = this.addFileResult
                     this.addFileResult = - 1;
-                    this.addFileResult !== null ? resolve(result) : reject(result);
+                    result !== null ? resolve(result) : reject(result);
                 }
             
             }, 3)
@@ -66,6 +72,7 @@ export const AudioCore = {
 
 
     getWaveform (id){
+        
         return new Promise((resolve, reject) => {
             
             const interval = setInterval(() => {
@@ -74,7 +81,7 @@ export const AudioCore = {
                     clearInterval(interval);
                     let result = this.getWaveFormResult;
                     this.getWaveFormResult = -1;
-                    this.getWaveFormResult !== null ? resolve(result) : reject(result);
+                    result !== null ? resolve(result) : reject(result);
                 }
             
             }, 3)
@@ -86,7 +93,26 @@ export const AudioCore = {
 
     },
 
-    addClips (){
+
+    addTrack (id){
+
+        return new Promise((resolve, reject) => {
+            
+            const interval = setInterval(() => {
+    
+                if(this.getAddTrackResult !== -1){
+                    clearInterval(interval);
+                    let result = this.getAddTrackResult;
+                    this.getAddTrackResult = -1;
+                    result !== null ? resolve(result) : reject(result);
+                }
+            
+            }, 3)
+            
+        
+            this.awp.port.postMessage({addTrack: id})
+            
+        })
 
     },
 

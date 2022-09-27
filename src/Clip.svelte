@@ -3,7 +3,6 @@
 
     import { onMount, createEventDispatcher, tick, afterUpdate } from 'svelte';
 
-
     import { get } from 'svelte/store';
     import {framesPerPixel, userEvents, lineDataStore} from './stores';
 
@@ -240,7 +239,7 @@
         }
 
         else if (side === 'right'){
-            pixelChange *= -1;``
+            pixelChange *= -1;
             let rNewClipTrim = clipTrims[1] + pixelsToFrames(pixelChange, get(framesPerPixel));
             if (rNewClipTrim < 0) return;
             clipTrims[1] = rNewClipTrim
@@ -350,9 +349,16 @@
     }
 
     const setCoreTrims = (clipTrims, fileId, clipId, position, trackId) => {
-        //clipTrims[0] -= 12000 //everything is a little off lol 
-        //clipTrims = clipTrims.map(ct => ct * 1);
-        AudioCore.awp.port.postMessage({trims: {fileId: fileId, clipId: clipId, trackId: trackId, meta: [position * get(framesPerPixel), clipTrims[0], clipTrims[1]]}})
+        
+        const start = position * get(framesPerPixel);
+        AudioCore.awp.port.postMessage({uiUpdate: {
+            start: start,
+            end: start + (lineData.sampleLength / 2 - clipTrims[1]),
+            trims: [clipTrims[0], clipTrims[1]],
+            trackId: trackId,
+            fileId: fileId,
+            clipId: clipId
+        }});
     }
 
     const clearCore = (fileId, clipId) => {
