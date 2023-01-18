@@ -3,6 +3,7 @@ import App from './App.svelte'
 import { AudioCore, CanvasCore } from './audio-utils.js';
 
 window.onload = async () => { 
+    
     await AudioCore.create();
     
     const app = new App({target: document.getElementById('root')})
@@ -11,7 +12,8 @@ window.onload = async () => {
     const pOffscreen = document.getElementById('playCanvas').transferControlToOffscreen();
     canvasWorker.port.postMessage({playCanvas: pOffscreen}, [pOffscreen]);
 
-    //other canvases
+    const lOffscreen = document.getElementById('leftCanvas').transferControlToOffscreen();
+    canvasWorker.port.postMessage({leftCanvas: lOffscreen}, [lOffscreen]);
 
     AudioCore.awp.port.postMessage({canvasPort: canvasWorker.port}, [canvasWorker.port])
 

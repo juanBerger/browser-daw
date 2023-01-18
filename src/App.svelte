@@ -9,11 +9,14 @@
     import Header from './Header.svelte';
 
     import { Loaders } from './Loaders.js';
+    import { AudioCore } from './audio-utils.js';
 
     const SR = 48000;
     const NUM_HOURS = 0.1;
-    const INIT_ZOOM_STEP = 10; // 0 to 30 --> as this gets higher polyline height should somehow get smaller
+    let ZOOM_STEP = 10; // 0 to 30 --> as this gets higher polyline height should somehow get smaller
     const LOAD_OPTION = 'auto';
+
+    const audioBuffers = [];
 
     let app;
 
@@ -22,7 +25,7 @@
         setSize(true, true);
 
         if (LOAD_OPTION = 'auto')
-           Loaders.auto();
+           Loaders.auto(audioBuffers);
 
     })
 
@@ -34,13 +37,25 @@
         setSize(false, true);
     })
 
-    const setSize = (setWidth, setHeight) => {
+    window.addEventListener('keydown', e => {
+        
+        if (e.key === '-' || e.key === '_')
+            ZOOM_STEP++
     
+        else if (e.key === '+' || e.key === '=')
+            ZOOM_STEP--
+        
+        framesPerPixel.ease(ZOOM_STEP);
+    });
+
+    const setSize = (setWidth, setHeight) => {
+
         if (setWidth){
             let totalSamples = SR * 60 * 60 * NUM_HOURS;
-            framesPerPixel.ease(INIT_ZOOM_STEP)
+            framesPerPixel.ease(ZOOM_STEP)
             let pixelWidth = String(Math.round(totalSamples / get(framesPerPixel)))
             app.style.setProperty('--app-width', pixelWidth + 'px')
+            
         }
 
         if (setHeight){

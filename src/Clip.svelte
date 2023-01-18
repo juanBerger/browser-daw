@@ -15,7 +15,6 @@
     export let track;
     export let clipId;
 
-
     //* DOM Elements *//
     let clip;
     let mask;
@@ -53,18 +52,17 @@
         
         const zoom = () => {
 
-            updateClipWidth(clipTrims, lineData, fpp);
+            updateClipWidth(clipTrims, lineData, get(framesPerPixel));
             
             let prevPosFrames = pixelsToFrames(start, lastfpp);
             let newPosPixels = framesToPixels([prevPosFrames], fpp)
             let delta = newPosPixels - start; //should be negative when we zoom out
             start = updatePosition(delta, start);
-            _maxSvgWidth = Number(window.getComputedStyle(clip).getPropertyValue('--width').split('px')[0]);
+            maxSvgWidth = Number(window.getComputedStyle(clip).getPropertyValue('--width').split('px')[0]);
             lastfpp = fpp;
         }
         
-        //skip the zoom operation when the fpp is initially set on load
-        //!lastfpp ? lastfpp = fpp : zoom();
+        !lastfpp ? lastfpp = fpp : zoom();
     });
 
     const dispatch = createEventDispatcher();
@@ -84,6 +82,7 @@
             let lineTrims = clipTrimsToLineTrims(clipTrims, lineData);
             updateTrims(0, 'left', clipTrims, lineTrims, lineData);
             updateTrims(0, 'right', clipTrims, lineTrims, lineData);
+
 
             window.addEventListener('mousedown', e => {
                 
@@ -155,17 +154,9 @@
 
             })
 
-        
-            // svg.addEventListener('mousemove', e => {
-            //     e.stopPropagation();
-            // });
-
-
 
             ltrim.addEventListener('mousemove', (e) => {
                 
-                //console.log('LTrim ', e.target)
-
                 if (isMoving || isHighlighting){
                     return
                 }
@@ -291,22 +282,12 @@
         mask.style.setProperty('--width', String(delta) + 'px')
     }
 
-    /**
-     * 
-     * @param pixels
-     * @param fpp
-     * @param lineData
-     */
     const pixelsToLinePoints = (pixels, fpp, lineData) => {
         let frames = pixels * fpp
         return Math.round(frames / (lineData.density / lineData.channels));
     }
 
-    /**
-     * 
-     * @param pixelChange : Positive to the right, negative to the left.
-     * @param start: start position in pixels. Updates this global var in place
-     */
+   
     const updatePosition = (pixelChange, start) => {
         start += pixelChange;
         clip.style.setProperty('--position', start + 'px');
@@ -334,11 +315,6 @@
         ))
     }
 
-    /**
-     * frames to pixels - 
-     * @param frames - array to sum. This is so that we can easily use with trims
-     * @param fpp - current frames per pixel value
-     */
     const framesToPixels = (frames, fpp) => {
         //const totalFrames = frames.reduce((prev, current) => prev + current);
         return Math.round(frames / fpp);
@@ -351,14 +327,20 @@
     const setCoreTrims = (clipTrims, fileId, clipId, position, trackId) => {
         
         const start = position * get(framesPerPixel);
-        AudioCore.awp.port.postMessage({uiUpdate: {
+        const end = start + ((lineData.sampleLength / 2) - (clipTrims[0] + clipTrims[1]))
+
+        const uiUpdate = {
             start: start,
-            end: start + (lineData.sampleLength / 2 - clipTrims[1]),
+            end: end,
             trims: [clipTrims[0], clipTrims[1]],
             trackId: trackId,
             fileId: fileId,
             clipId: clipId
-        }});
+        
+        }
+
+        //console.log('**** CLIP *****', uiUpdate);
+        AudioCore.awp.port.postMessage({uiUpdate: uiUpdate});
     }
 
     const clearCore = (fileId, clipId) => {
@@ -402,7 +384,7 @@
         margin-bottom: 0.45em;
 
         box-shadow: 0.06em 0.06em 0.2em 0.09em rgba(163, 142, 168, 0.46);
-        background: rgba(177, 177, 177, 0.06);
+        background: rgba(177, 177, 177, 0);
         cursor: var(--cursor);
         
     }
@@ -410,17 +392,9 @@
     .trimAreas {
 
         position: absolute;
-/*         
-        grid-row-start: 1;
-        grid-column-start: 1; */
-        
         width: 25px;
-        /* width: 15px; */
         height: 100%;
-       
         z-index: 100;
-
-        /* background: rgba(245, 222, 179, 0.504); */
 
     }
 
@@ -435,8 +409,6 @@
 
     .line {
 
-        /* grid-row-start: 1;
-        grid-column-start: 1; */
         position: absolute;
         width: 100%;
         height: 100%;
@@ -456,11 +428,8 @@
         position: absolute;
 
         width: var(--width);
-        /* transform: translateX(var(--position)); */
         left: var(--position);
         height: 98%;
-        /* grid-row-start: 1;
-        grid-column-start: 1; */
         background: rgba(209, 213, 255, var(--opacity)); /*up to 0.2 maybe*/
 
     }

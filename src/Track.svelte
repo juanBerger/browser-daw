@@ -9,10 +9,8 @@
     import Clip from './Clip.svelte'
     import { AudioCore } from './audio-utils.js'
 
-
     export let trackId;
     let track;
-    let maxZIdx;
     
     const ueUnsub = userEvents.subscribe(async ue => { 
 
@@ -24,7 +22,6 @@
             }
         }
     })
-
 
     function doEvent(targetClips, type){
 

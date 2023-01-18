@@ -1,6 +1,6 @@
 export function _wavParser (byteView) {
 				
-    console.log(String.fromCharCode(...byteView.slice(0, 4))) 
+    //console.log(String.fromCharCode(...byteView.slice(0, 4))) 
     const ch = byteView.slice(22, 24)[0]
     const sr = new Int32Array(byteView.buffer.slice(24, 28))[0]
     const dtype = byteView.slice(34, 36)[0]
@@ -22,7 +22,7 @@ export function _wavParser (byteView) {
         const chunkType = String.fromCharCode(...byteView.slice(idx, endIdx))
         const chunkSize = new Int32Array(byteView.buffer.slice(endIdx, endIdx + 4))[0]
         
-        console.log('[FOUND CHUNK TYPE: ', chunkType)
+        //console.log('[FOUND CHUNK TYPE: ', chunkType)
         
         if (chunkType === 'data'){
             isSearching = false

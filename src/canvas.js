@@ -5,6 +5,9 @@ onconnect = e => {
     
     let playCanvas = null;
     let playCtx = null;
+    let leftCanvas = null;
+    let leftCtx = null;
+    
     let lastpp = 0;
 
 
@@ -13,13 +16,29 @@ onconnect = e => {
         cx.strokeStyle = "rgba(212, 73, 243, 0.635)";
         cx.lineWidth = 3;
         cx.lineCap = 'round';
-        cx.clearRect(leftOffset - 10, 0, 20, playCanvas.height)
+        cx.clearRect(0, 0, playCanvas.width, playCanvas.height);
         cx.beginPath();
         cx.moveTo(leftOffset, topOffset);
         cx.lineTo(leftOffset, length);
-        cx.stroke();
-       
-       
+        cx.stroke();  
+    }
+
+
+    const drawMeter = (cx, leftCanvas, topOffset) => {
+
+        // const meterWidth = 7;
+        // const xOffset = leftCanvas.width - (meterWidth + 2);
+        
+        // cx.fillStyle = 'blue';
+        // cx.fillRect(xOffset, 0, meterWidth, 120);
+        
+        // let grd = cx.createLinearGradient(0, 0, 100, 100)
+        // grd.addColorStop(0, 'green');
+        // grd.addColorStop(0.5, 'yellow');
+        // cx.fillStyle = grd
+        // cx.beginPath();
+        // cx.rect(0, 0, leftCanvas.width, leftCanvas.height)
+        // console.log('drawMeter')
     }
 
 
@@ -30,22 +49,50 @@ onconnect = e => {
             playCtx = playCanvas.getContext('2d');
         }
 
+
+        else if (e.data.leftCanvas){
+            //leftCanvas = e.data.leftCanvas;
+            //leftCtx = leftCanvas.getContext('2d');
+        }
+
+
         else if (e.data.resize){
+            
             const d = e.data.resize;
             if (d.type === 'playhead'){
                 playCanvas.width = Math.round(d.width);
                 playCanvas.height = Math.round(d.height);
                 drawPlayhead(playCtx, lastpp, TOP_OFFSET, d.height - TOP_OFFSET);
+            }
+            
+            else if (d.type === 'leftArea'){
+                
+                // leftCanvas.width = Math.round(d.width);
+                // leftCanvas.height = Math.round(d.height);
+                // drawMeter(leftCtx, leftCanvas);
 
             }
+        
+        }
+
+        else if (e.data.addMeter){
+
+
+
         }
         
         else if (e.data.tick){
-            const pixelPosition = e.data.tick / e.data.fpp;
+            // let frame = e.data.tick - 0;
+            // if (frame < 0){
+            //     frame = 0
+            // }
+
+            const pixelPosition = Math.round(e.data.tick / e.data.fpp);
+            console.log(e.data, pixelPosition);
             drawPlayhead(playCtx, pixelPosition, TOP_OFFSET, playCanvas.height - TOP_OFFSET);
             lastpp = pixelPosition;
-            
         }
     }
 };
 
+ 

@@ -1,16 +1,15 @@
 <script>
 
     import { onDestroy, onMount } from 'svelte';
-    import { get } from 'svelte/store'
 
     import { framesPerPixel, userEvents } from './stores.js'
 
     import Track from './Track.svelte'
-    import Meter from './Meter.svelte'
     import Playhead from './Playhead.svelte'
     import { AudioCore } from './audio-utils.js';
 
     let trackArea;
+    let playCanvas;
     const tracks = []; //this component is in charge of assigning track ids. It reuses indeces from this array
 
     const ueUnsub = userEvents.subscribe(ue => {
@@ -24,6 +23,8 @@
                         trackId: tracks.length, //we are just using the indexes here as trackIds
                     }
                 })
+
+                //
                 
                 AudioCore.awp.port.postMessage({addTrack: tracks.length})
                 popUserEvent(i);
@@ -53,9 +54,8 @@
     }
 
 
-    onMount(async () => {
+    onMount(() => {
         resObs.observe(trackArea);
-
     })
 
     onDestroy(() => {
@@ -64,7 +64,6 @@
     })
 
     const resObs = new ResizeObserver(e => {
-        //console.log(e[0].borderBoxSize[0].inlineSize, e[0].borderBoxSize[0].blockSize);
         AudioCore.awp.port.postMessage({resize: {type: 'playhead', width: e[0].borderBoxSize[0].inlineSize, height: e[0].borderBoxSize[0].blockSize}})
     })
 
@@ -72,9 +71,9 @@
 </script>
 
     <div bind:this={trackArea} id='trackArea'>
-        <canvas id='playCanvas'></canvas>
+        <canvas bind:this={playCanvas} id='playCanvas'></canvas>
         <Playhead/>
-    </div>
+    </div>  
 
 <style>
 
@@ -85,14 +84,15 @@
         grid-column-start: 3;
         display: flex;
         flex-direction: column;
-        /* margin-left: 0.8em;
-        margin-right: 0.8em; */
+        margin-top: 0.3em;
+        margin-left: 0.6em;
       
     }
 
 
     #playCanvas {
         box-sizing: border-box;
+        background-color: rgba(52, 51, 51, 0.204);
         position: absolute;
         z-index: -100;
     }

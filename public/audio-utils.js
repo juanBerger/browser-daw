@@ -10,7 +10,6 @@ export const CanvasCore = {
         this.worker = new SharedWorker(canvasURL, {name: 'Canvas Worker'})
         return this.worker;
     }
-
 }
 
 
@@ -51,7 +50,7 @@ export const AudioCore = {
         }
     },
 
-    addFile (arrayBuffer, filename) {
+    async addFile (arrayBuffer, filename) {
         
         return new Promise((resolve, reject) => {
             
@@ -71,7 +70,7 @@ export const AudioCore = {
     },
 
 
-    getWaveform (id){
+    async getWaveform (id){
         
         return new Promise((resolve, reject) => {
             

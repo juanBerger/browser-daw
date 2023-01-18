@@ -1,5 +1,7 @@
 import { readable, writable } from 'svelte/store'
 import { scaler } from './utils.js'
+import { AudioCore } from './audio-utils.js';
+
 
 const MIN_FPP = 25; 
 const MAX_FPP = 10000;
@@ -30,6 +32,7 @@ function applyEasing (x) {
             scaled /= CHANNELS
             console.log('[CURRENT FPP]...', scaled)
             set(scaled)
+            AudioCore.awp.port.postMessage({fppUpdate: scaled})
             
         },
         subscribe

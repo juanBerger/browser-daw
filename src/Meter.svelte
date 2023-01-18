@@ -26,7 +26,6 @@ const handleMeterMessage = e => {
     if (e.data.amplitude && e.data.amplitude.track === trackId){
         
         newMaskHeight = String(100 - (e.data.amplitude.amplitude * 100)) + '%'
-        //console.log(newMaskHeight)
         _mask.animate([
             {height: prevMaskHeight},
             {height: newMaskHeight}

@@ -30,7 +30,9 @@ export default {
           }
         },
       
-        del({ targets: ['public/*', '!public/test_1.wav', '!public/TRL_TRL_0128_01401_Wonder__a__APM.wav', '!public/index.html', '!public/styles.css']}),
+        del({ targets: ['public/*', 
+        '!public/*.wav', 
+        '!public/index.html', '!public/styles.css']}),
 
         copy({
           targets: [
@@ -46,3 +48,18 @@ export default {
     ]
   };
   
+
+
+/*
+
+del({ targets: ['public/*', 
+        '!public/test_1.wav', 
+        '!public/TRL_TRL_0128_01401_Wonder__a__STEM_(Bass)_APM.wav',
+        '!public/TRL_TRL_0128_01401_Wonder__a__STEM_(Drum)_APM.wav',
+        '!public/TRL_TRL_0128_01401_Wonder__a__STEM_(Flutes)_APM.wav',
+        '!public/TRL_TRL_0128_01401_Wonder__a__STEM_(Guitar)_APM.wav',
+        '!public/TRL_TRL_0128_01401_Wonder__a__STEM_(Keys)_APM.wav',
+        '!public/index.html', '!public/styles.css']}),
+
+
+*/
