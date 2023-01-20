@@ -2,7 +2,6 @@
 import { v5 as uuidv5 } from 'uuid';
 import { _generateWaveForm, _wavParser, _castToFloat } from './file_utils.js'
 
-
 class AWP extends AudioWorkletProcessor {
 
 	constructor() { 
@@ -16,6 +15,7 @@ class AWP extends AudioWorkletProcessor {
 		this.port.onmessage = e => {
 			
 			if (e.data.playToggle){
+
 				this.Transport.isPlaying = !this.Transport.isPlaying
 				//this.Transport.fpp = e.data.fpp;
 			}
@@ -60,6 +60,11 @@ class AWP extends AudioWorkletProcessor {
 
 			else if (e.data.resize){
 				this.canvasPort.postMessage(e.data)
+			}
+
+			else if (e.data.snap){
+				this.Transport.snap(e.data.snap);
+				this.canvasPort.postMessage({tick: this.Transport.frameNumber, fpp: this.Transport.fpp})
 			}
 
 		}
@@ -219,6 +224,7 @@ class AWP extends AudioWorkletProcessor {
 			},
 
 			stack: [],
+			overlapStack: [],
 
 			clearFromStack(clipId){
 				
@@ -246,6 +252,36 @@ class AWP extends AudioWorkletProcessor {
 					console.log('[Adding To Stack On Update]...', uiUpdate.clipId);
 					this.stack.push(uiUpdate);
 				}
+			},
+
+
+			syncMapsOnSnap(){
+
+				this.overlapStack = [];
+				
+				for (const clipId in this.timeLine.data){
+					const clip = this.timeLine.data[clipId];
+					
+					if (this.frameNumber > clip.start && this.frameNumber < clip.end){
+						this.overlapStack.push(clip);
+
+						// if (!this.timeLine.maps[this.frameNumber]){
+						// 	let slotArray = [];
+						// 	slotArray.push(slotObject);
+						// 	this.timeLine.maps[this.frameNumber] = slotArray;
+						// }
+
+						// else {
+							
+						// 	for (const so of this.timeLine.maps[this.frameNumber]){
+						// 		if (so.id === slotObject.id)
+						// 			continue;
+						// 		this.timeLine.maps[this.frameNumber].push(slotObject);
+						// 	}
+							
+						// }
+					}
+				}
 
 			},
 
@@ -264,6 +300,11 @@ class AWP extends AudioWorkletProcessor {
 							console.log('[Adding To Stack On Boundry]...', uiUpdate.clipId);
 						}
 
+						else if (tlObject.type === 'overlap'){
+							this.overlapStack.push(uiUpdate);
+							console.log('[Adding To Stack On Overlap]...', uiUpdate.clipId);
+						}
+
 						else {
 		
 							this.stack.forEach((s, i) => {
@@ -278,11 +319,33 @@ class AWP extends AudioWorkletProcessor {
 
 				}
 
+				// else {
+
+				// 	for (const clipId in this.timeLine.data){
+				// 		const uiUpdate = this.timeLine.data[clipId];
+				// 		const clipStart = uiUpdate.start;
+				// 		const clipEnd = uiUpdate.end;
+				// 		if (this.frameNumber > clipStart && this.frameNumber < clipEnd){
+				// 			for (const _uiUpdate of this.stack){
+				// 				if (_uiUpdate.clipId === uiUpdate.clipId)
+				// 					break
+				// 			}
+							
+				// 			this.stack.push(uiUpdate);
+				// 			console.log('[Adding To Stack On Overlap]...', uiUpdate.clipId);
+				// 		}
+				// 	}
+				// }
+
 			},
 
 	
 			tick(frames){ this.frameNumber += frames; },
-			snap(frameNumber){ this.frameNumber = frameNumber},
+			
+			snap(frameNumber){ 
+				this.frameNumber = frameNumber;
+				this.syncMapsOnSnap();
+			},
 
 			//on playback stop
 			clearStack(){
@@ -312,7 +375,8 @@ class AWP extends AudioWorkletProcessor {
 			const outputL = outputDevice[0];
 			const outputR = outputDevice[1];
 			const frames = outputDevice[0].length;
-			const stack = this.Transport.stack;
+			const stack = this.Transport.stack.concat(this.Transport.overlapStack);
+		
 			const tracks = this.Tracks.tracks; //tracks: {trackId: {left: [typedArray], right: [typedArray], gain: number, muted: false}}
 
 			//{start: start, end: end, trims: [trims], fileId: fileId, trackId: trackId}
@@ -325,6 +389,7 @@ class AWP extends AudioWorkletProcessor {
 				
 				
 				const slice = fileObj.audio.subarray(start, end); //this should be 128 *  channels length
+
 				// const offset = frames - (end - start); ////need this offset in case our slice does not fill a full 128 samples.
 				// const trackL = tracks[entry.trackId].left;
 				// const trackR = tracks[entry.trackId].right;
@@ -345,12 +410,13 @@ class AWP extends AudioWorkletProcessor {
 			}
 
 			//only call this every x chunks?
-			if (this.tickBuffer >= 10){
+			if (this.tickBuffer >= 1){
 				this.tickBuffer = 0
 				this.canvasPort.postMessage({tick: this.Transport.frameNumber, fpp: this.Transport.fpp}) //add computed RMS vlues for each channel for each track
 			}
-			
-			this.Transport.tick(frames)
+
+			//this.Transport.overlapStack = [];
+			this.Transport.tick(frames);
 			this.tickBuffer++;
 			this.wasPlaying = true;
 		}

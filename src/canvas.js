@@ -5,6 +5,7 @@ onconnect = e => {
     
     let playCanvas = null;
     let playCtx = null;
+
     let leftCanvas = null;
     let leftCtx = null;
     
@@ -24,22 +25,22 @@ onconnect = e => {
     }
 
 
-    const drawMeter = (cx, leftCanvas, topOffset) => {
+    // const drawMeter = (cx, leftCanvas, topOffset) => {
 
-        // const meterWidth = 7;
-        // const xOffset = leftCanvas.width - (meterWidth + 2);
+    //     const meterWidth = 7;
+    //     const xOffset = leftCanvas.width - (meterWidth + 2);
         
-        // cx.fillStyle = 'blue';
-        // cx.fillRect(xOffset, 0, meterWidth, 120);
+    //     cx.fillStyle = 'blue';
+    //     cx.fillRect(xOffset, 0, meterWidth, 120);
         
-        // let grd = cx.createLinearGradient(0, 0, 100, 100)
-        // grd.addColorStop(0, 'green');
-        // grd.addColorStop(0.5, 'yellow');
-        // cx.fillStyle = grd
-        // cx.beginPath();
-        // cx.rect(0, 0, leftCanvas.width, leftCanvas.height)
-        // console.log('drawMeter')
-    }
+    //     // let grd = cx.createLinearGradient(0, 0, 100, 100)
+    //     // grd.addColorStop(0, 'green');
+    //     // grd.addColorStop(0.5, 'yellow');
+    //     // cx.fillStyle = grd
+    //     // cx.beginPath();
+    //     // cx.rect(0, 0, leftCanvas.width, leftCanvas.height)
+    //     // console.log('drawMeter')
+    // }
 
 
     port.onmessage = e => {
@@ -77,21 +78,20 @@ onconnect = e => {
 
         else if (e.data.addMeter){
 
-
-
         }
         
         else if (e.data.tick){
-            // let frame = e.data.tick - 0;
-            // if (frame < 0){
-            //     frame = 0
-            // }
-
             const pixelPosition = Math.round(e.data.tick / e.data.fpp);
-            console.log(e.data, pixelPosition);
             drawPlayhead(playCtx, pixelPosition, TOP_OFFSET, playCanvas.height - TOP_OFFSET);
             lastpp = pixelPosition;
         }
+
+        // else if (e.data.snap){
+            
+        //     const pixelPosition = Math.round(e.data.snap);
+        //     drawPlayhead(playCtx, pixelPosition, TOP_OFFSET, playCanvas.height - TOP_OFFSET);
+        //     lastpp = pixelPosition;
+        // }
     }
 };
 

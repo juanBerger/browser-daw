@@ -391,9 +391,9 @@ function uuidv4() {
         (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
 }
 
-var awpURL = "awp-a4ceba8e.js";
+var awpURL = "awp-6845743e.js";
 
-var canvasURL = "canvas-44f703d7.js";
+var canvasURL = "canvas-2a9ccea7.js";
 
 const CanvasCore = {
 
@@ -1219,9 +1219,9 @@ function create_fragment$3(ctx) {
 			t = space();
 			create_component(playhead.$$.fragment);
 			attr(canvas, "id", "playCanvas");
-			attr(canvas, "class", "svelte-1elo4nt");
+			attr(canvas, "class", "svelte-35cn0o");
 			attr(div, "id", "trackArea");
-			attr(div, "class", "svelte-1elo4nt");
+			attr(div, "class", "svelte-35cn0o");
 		},
 		m(target, anchor) {
 			insert(target, div, anchor);
@@ -1267,9 +1267,7 @@ function instance$3($$self, $$props, $$invalidate) {
 						}
 					});
 
-				//
 				AudioCore.awp.port.postMessage({ addTrack: tracks.length });
-
 				popUserEvent(i);
 
 				if (event.clips) {
@@ -1444,24 +1442,26 @@ function create_fragment$1(ctx) {
 	};
 }
 
+let TOTAL_PADDING = 9;
+
 function instance$1($$self, $$props, $$invalidate) {
-	let _this;
+	let header;
 
 	onMount(e => {
-		
-	}); // _this.addEventListener('click', e => {
-	//     let newPos = (e.offsetX - TOTAL_PADDING) * get(framesPerPixel)
-	//     currentFrame.set(newPos)
-	// })
+		header.addEventListener('click', e => {
+			const framePos = (e.offsetX - TOTAL_PADDING) * get_store_value(framesPerPixel);
+			AudioCore.awp.port.postMessage({ snap: framePos });
+		});
+	});
 
 	function div_binding($$value) {
 		binding_callbacks[$$value ? 'unshift' : 'push'](() => {
-			_this = $$value;
-			$$invalidate(0, _this);
+			header = $$value;
+			$$invalidate(0, header);
 		});
 	}
 
-	return [_this, div_binding];
+	return [header, div_binding];
 }
 
 class Header extends SvelteComponent {

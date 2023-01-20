@@ -2,7 +2,7 @@
 
     import { onDestroy, onMount } from 'svelte';
 
-    import { framesPerPixel, userEvents } from './stores.js'
+    import { userEvents } from './stores.js'
 
     import Track from './Track.svelte'
     import Playhead from './Playhead.svelte'
@@ -23,8 +23,6 @@
                         trackId: tracks.length, //we are just using the indexes here as trackIds
                     }
                 })
-
-                //
                 
                 AudioCore.awp.port.postMessage({addTrack: tracks.length})
                 popUserEvent(i);
@@ -94,6 +92,8 @@
         box-sizing: border-box;
         background-color: rgba(52, 51, 51, 0.204);
         position: absolute;
+        width: 100%;
+        height: 100%;
         z-index: -100;
     }
 
