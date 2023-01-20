@@ -12,6 +12,7 @@
     "svelte": "^3.48.0"
   },
   "scripts": {
+    "dev-deploy": "rollup -c",
     "dev-build": "rollup -c -w",
     "dev-server": "wds --open /public/ --node-resolve --watch"
   },
